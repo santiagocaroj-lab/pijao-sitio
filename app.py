@@ -191,7 +191,7 @@ elif st.session_state.nav_state == "desarrollo":
     
     st.markdown("""
     <style>
-    /* PANTALLA DE CARGA FALSA EN CAPA SUPERIOR (Evita glitches visuales) */
+    /* PANTALLA DE CARGA FALSA EN CAPA SUPERIOR */
     .loading-overlay {
         position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
         background-color: #111110; z-index: 999999;
@@ -269,6 +269,18 @@ elif st.session_state.nav_state == "desarrollo":
         background: #F2EFE9; border: 1px solid #E4E0D8; padding: 50px; text-align: center; margin-top: 40px;
     }
     
+    /* ESTILO PARA EL NUEVO BOTÓN DE ENLACE EXTERNO */
+    .btn-link {
+        display: inline-block; background-color: #1F1E1D !important; color: #FAF8F5 !important;
+        border: 1px solid #1F1E1D !important; padding: 12px 30px; font-family: 'Cinzel', serif !important;
+        letter-spacing: 0.1em !important; cursor: pointer; transition: all 0.3s ease !important;
+        border-radius: 2px !important; text-decoration: none !important; font-size: 1rem;
+        margin-top: 15px;
+    }
+    .btn-link:hover {
+        background-color: #FAF8F5 !important; color: #1F1E1D !important; border-color: #1F1E1D !important;
+    }
+
     div[data-testid="stButton"] button {
         background-color: #1F1E1D !important; color: #FAF8F5 !important;
         border: 1px solid #1F1E1D !important; border-radius: 2px !important;
@@ -281,7 +293,7 @@ elif st.session_state.nav_state == "desarrollo":
     </style>
     """, unsafe_allow_html=True)
 
-    # 1. PANTALLA DE CARGA (Se dibuja por encima y luego desaparece por CSS)
+    # 1. PANTALLA DE CARGA
     st.markdown("""
     <div class="loading-overlay">
         <div class="loading-text">LLEGANDO A LA MONTAÑA</div>
@@ -289,7 +301,7 @@ elif st.session_state.nav_state == "desarrollo":
     </div>
     """, unsafe_allow_html=True)
 
-    # 2. CONTROL DE AUDIO (Implementación separando HTML de JS para evitar bloqueos de Streamlit)
+    # 2. CONTROL DE AUDIO
     audio_html = f"""
     <audio id="global-audio-m1" loop autoplay>
         <source src="{audio_m1_b64}" type="audio/mpeg">
@@ -300,8 +312,6 @@ elif st.session_state.nav_state == "desarrollo":
     """
     st.markdown(audio_html, unsafe_allow_html=True)
 
-    # Inyectamos el JavaScript mediante un componente (iframe oculto) que sí se ejecuta,
-    # y apuntamos a "window.parent.document" para alcanzar el reproductor y el botón de arriba.
     st.components.v1.html("""
     <script>
     (function() {
@@ -325,7 +335,6 @@ elif st.session_state.nav_state == "desarrollo":
                 });
             }
         }
-        // Revisa constantemente por si Streamlit repinta la interfaz y borra los eventos
         setInterval(enlazarAudio, 500);
         enlazarAudio();
     })();
@@ -456,10 +465,41 @@ elif st.session_state.nav_state == "desarrollo":
 
     st.markdown("</div></section>", unsafe_allow_html=True)
 
-    # 8. EL TERRITORIO
+    # 8. CONOCE PIJAO (NUEVA SECCIÓN)
+    st.markdown("""
+    <div id="conoce-pijao"></div>
+    <section class="editorial-section">
+        <div style="max-width: 1100px; margin: 0 auto; text-align: center;">
+            <p class="section-subtitle">Esencia y Magia</p>
+            <h2 class="section-title">Conoce Pijao</h2>
+            <p class="editorial-text" style="max-width: 800px; margin: 0 auto 40px auto;">
+                Pijao es un susurro entre las montañas, un rincón mágico donde la naturaleza deslumbrante 
+                y la inmensa calidez de su gente se entrelazan. Caminar por sus calles tranquilas es 
+                respirar paz, percibir el aroma inconfundible del café recién tostado y dejarse abrazar por 
+                un pueblo que ha decidido cultivar la vida con amor, consciencia y sin ninguna prisa.
+            </p>
+    """, unsafe_allow_html=True)
+
+    img_f13 = photos_b64.get("F13")
+    if img_f13:
+        st.markdown(f"""
+            <div style="margin-bottom: 40px;">
+                <img src="{img_f13}" style="width: 100%; max-width: 850px; border-radius: 2px; box-shadow: 0 15px 35px rgba(0,0,0,0.08); object-fit: cover;">
+            </div>
+        """, unsafe_allow_html=True)
+
+    st.markdown("""
+            <a href="https://www.youtube.com/watch?v=UPRAk3g7YVg" target="_blank" class="btn-link">
+                CONOCER MÁS
+            </a>
+        </div>
+    </section>
+    """, unsafe_allow_html=True)
+
+    # 9. EL TERRITORIO
     st.markdown("""
     <div id="territorio"></div>
-    <section class="editorial-section">
+    <section class="editorial-section alt">
         <div style="max-width: 1100px; margin: 0 auto;">
             <p class="section-subtitle">Geografía y Entorno</p>
             <h2 class="section-title">El territorio</h2>
@@ -481,10 +521,10 @@ elif st.session_state.nav_state == "desarrollo":
     </section>
     """, unsafe_allow_html=True)
 
-    # 9. DESCUBRE PIJAO
+    # 10. DESCUBRE PIJAO
     st.markdown("""
     <div id="descubre-pijao"></div>
-    <section class="editorial-section alt">
+    <section class="editorial-section">
         <div style="max-width: 1100px; margin: 0 auto;">
             <p class="section-subtitle">Ejes Temáticos</p>
             <h2 class="section-title">Descubre Pijao</h2>
@@ -498,7 +538,7 @@ elif st.session_state.nav_state == "desarrollo":
     </section>
     """, unsafe_allow_html=True)
 
-    # 10. RECORRIDO AUDIOVISUAL
+    # 11. RECORRIDO AUDIOVISUAL
     recorrido_items = [f"F{i}" for i in range(1, 19)]
     if vpinicio_path: recorrido_items.append("VPINICIO")
     if video_intro_path: recorrido_items.append("VIDEO")
@@ -515,7 +555,7 @@ elif st.session_state.nav_state == "desarrollo":
 
     st.markdown("""
     <div id="recorrido-audiovisual"></div>
-    <section class="editorial-section">
+    <section class="editorial-section alt">
         <div style="max-width: 900px; margin: 0 auto; text-align: center;">
             <p class="section-subtitle">Inmersión Visual</p>
             <h2 class="section-title">Recorrido audiovisual</h2>
@@ -552,7 +592,7 @@ elif st.session_state.nav_state == "desarrollo":
             st.rerun()
     st.markdown("</section>", unsafe_allow_html=True)
 
-    # 11. FOOTER
+    # 12. FOOTER
     st.markdown("""
     <section style="padding: 60px 10%; background-color: #1F1E1D; color: #FAF8F5; text-align: center;">
         <h3 style="font-family: 'Cinzel', serif; font-size: 1.5rem; margin-bottom: 20px;">PIJAO, CIUDAD SIN PRISA</h3>
