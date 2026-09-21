@@ -289,7 +289,7 @@ elif st.session_state.nav_state == "desarrollo":
     </div>
     """, unsafe_allow_html=True)
 
-    # 2. CONTROL DE AUDIO (Implementación con JS Robusto)
+    # 2. CONTROL DE AUDIO (Implementación separando HTML de JS para evitar bloqueos de Streamlit)
     audio_html = f"""
     <audio id="global-audio-m1" loop autoplay>
         <source src="{audio_m1_b64}" type="audio/mpeg">
@@ -297,36 +297,40 @@ elif st.session_state.nav_state == "desarrollo":
     <div class="audio-control-container">
         <button class="audio-btn" id="audio-btn-element">◖ QUITAR SONIDO</button>
     </div>
-    
+    """
+    st.markdown(audio_html, unsafe_allow_html=True)
+
+    # Inyectamos el JavaScript mediante un componente (iframe oculto) que sí se ejecuta,
+    # y apuntamos a "window.parent.document" para alcanzar el reproductor y el botón de arriba.
+    st.components.v1.html("""
     <script>
-    (function() {{
-        function enlazarAudio() {{
-            var audio = document.getElementById('global-audio-m1');
-            var btn = document.getElementById('audio-btn-element');
+    (function() {
+        function enlazarAudio() {
+            var doc = window.parent.document;
+            var audio = doc.getElementById('global-audio-m1');
+            var btn = doc.getElementById('audio-btn-element');
             
-            // Si los elementos existen y el botón aún no tiene el evento asignado
-            if (audio && btn && !btn.hasAttribute('data-activo')) {{
+            if (audio && btn && !btn.hasAttribute('data-activo')) {
                 btn.setAttribute('data-activo', 'true');
                 
-                btn.addEventListener('click', function() {{
-                    if (audio.paused || audio.muted) {{
+                btn.addEventListener('click', function() {
+                    if (audio.paused || audio.muted) {
                         audio.muted = false;
                         audio.play();
                         btn.innerText = '◖ QUITAR SONIDO';
-                    }} else {{
+                    } else {
                         audio.pause();
                         btn.innerText = '◖ ACTIVAR SONIDO';
-                    }}
-                }});
-            }}
-        }}
-        // Revisa cada medio segundo en caso de que Streamlit repinte la pantalla
+                    }
+                });
+            }
+        }
+        // Revisa constantemente por si Streamlit repinta la interfaz y borra los eventos
         setInterval(enlazarAudio, 500);
         enlazarAudio();
-    }})();
+    })();
     </script>
-    """
-    st.markdown(audio_html, unsafe_allow_html=True)
+    """, height=0, width=0)
 
     # 3. NAVEGACIÓN PRINCIPAL
     st.markdown("""
