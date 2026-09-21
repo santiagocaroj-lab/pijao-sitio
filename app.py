@@ -185,7 +185,7 @@ if st.session_state.nav_state == "inicio":
 
 
 # ==========================================
-# PÁGINA 2: DESARROLLO (Con Pantalla de Carga CSS Overlay)
+# PÁGINA 2: DESARROLLO
 # ==========================================
 elif st.session_state.nav_state == "desarrollo":
     
@@ -269,13 +269,12 @@ elif st.session_state.nav_state == "desarrollo":
         background: #F2EFE9; border: 1px solid #E4E0D8; padding: 50px; text-align: center; margin-top: 40px;
     }
     
-    /* ESTILO PARA EL NUEVO BOTÓN DE ENLACE EXTERNO */
+    /* ESTILO PARA EL BOTÓN DE ENLACE EXTERNO */
     .btn-link {
         display: inline-block; background-color: #1F1E1D !important; color: #FAF8F5 !important;
         border: 1px solid #1F1E1D !important; padding: 12px 30px; font-family: 'Cinzel', serif !important;
         letter-spacing: 0.1em !important; cursor: pointer; transition: all 0.3s ease !important;
         border-radius: 2px !important; text-decoration: none !important; font-size: 1rem;
-        margin-top: 15px;
     }
     .btn-link:hover {
         background-color: #FAF8F5 !important; color: #1F1E1D !important; border-color: #1F1E1D !important;
@@ -465,7 +464,7 @@ elif st.session_state.nav_state == "desarrollo":
 
     st.markdown("</div></section>", unsafe_allow_html=True)
 
-    # 8. CONOCE PIJAO (NUEVA SECCIÓN)
+    # 8. CONOCE PIJAO (ACTUALIZADO: Imagen a un lado y botón en el espacio vacío)
     st.markdown("""
     <div id="conoce-pijao"></div>
     <section class="editorial-section">
@@ -482,16 +481,28 @@ elif st.session_state.nav_state == "desarrollo":
 
     img_f13 = photos_b64.get("F13")
     if img_f13:
+        # AQUÍ ESTÁ EL CAMBIO: Un contenedor flex para alinear la imagen y el botón lado a lado
         st.markdown(f"""
-            <div style="margin-bottom: 40px;">
-                <img src="{img_f13}" style="width: 100%; max-width: 850px; border-radius: 2px; box-shadow: 0 15px 35px rgba(0,0,0,0.08); object-fit: cover;">
+            <div style="display: flex; align-items: center; justify-content: center; gap: 40px; flex-wrap: wrap; max-width: 900px; margin: 0 auto;">
+                <div style="flex: 1.5; min-width: 300px;">
+                    <img src="{img_f13}" style="width: 100%; border-radius: 2px; box-shadow: 0 15px 35px rgba(0,0,0,0.08); object-fit: cover;">
+                </div>
+                <div style="flex: 1; min-width: 200px; display: flex; justify-content: center; align-items: center;">
+                    <a href="https://www.youtube.com/watch?v=UPRAk3g7YVg" target="_blank" class="btn-link">
+                        CONOCER MÁS
+                    </a>
+                </div>
             </div>
         """, unsafe_allow_html=True)
-
-    st.markdown("""
+    else:
+        # En caso de que la imagen no cargue, dejamos el botón solo
+        st.markdown("""
             <a href="https://www.youtube.com/watch?v=UPRAk3g7YVg" target="_blank" class="btn-link">
                 CONOCER MÁS
             </a>
+        """, unsafe_allow_html=True)
+
+    st.markdown("""
         </div>
     </section>
     """, unsafe_allow_html=True)
