@@ -1,8 +1,9 @@
 import base64
 from pathlib import Path
+import mimetypes
 import streamlit as st
+import streamlit.components.v1 as components
 
-# Configuración de la página
 st.set_page_config(
     page_title="Pijao, Ciudad Sin Prisa",
     page_icon="☕",
@@ -10,1044 +11,1087 @@ st.set_page_config(
     initial_sidebar_state="collapsed",
 )
 
-# Directorios de recursos
 BASE_DIR = Path(__file__).resolve().parent
 ASSETS_DIR = BASE_DIR / "assets"
 
-# Extensiones permitidas
-IMAGE_EXTS = [".jpg", ".jpeg", ".png", ".webp"]
-VIDEO_EXTS = [".mp4", ".webm", ".mov"]
-AUDIO_EXTS = [".mp3", ".wav", ".ogg"]
-
+IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".webp"}
+VIDEO_EXTS = {".mp4", ".webm", ".mov"}
+AUDIO_EXTS = {".mp3", ".wav", ".ogg"}
 
 def find_asset(name):
-    """Busca un recurso en la carpeta assets independientemente de su extensión y mayúsculas/minúsculas."""
     if not ASSETS_DIR.exists():
         return None
-
-    all_exts = IMAGE_EXTS + VIDEO_EXTS + AUDIO_EXTS
-    # Buscar coincidencia exacta o con extensiones permitidas
-    for ext in all_exts:
-        for path in ASSETS_DIR.glob(f"{name}{ext}"):
-            if path.exists():
-                return path
-        for path in ASSETS_DIR.glob(f"{name.lower()}{ext}"):
-            if path.exists():
-                return path
-        for path in ASSETS_DIR.glob(f"{name.upper()}{ext}"):
-            if path.exists():
-                return path
-
-    # Búsqueda flexible por si el archivo tiene sufijos
     for path in ASSETS_DIR.iterdir():
-        if path.stem.upper() == name.upper():
+        if (
+            path.is_file()
+            and path.suffix.lower() in IMAGE_EXTS | VIDEO_EXTS | AUDIO_EXTS
+            and path.stem.lower() == name.lower()
+        ):
             return path
     return None
 
-
-def get_asset_base64(path):
-    """Convierte un archivo local a base64 para incrustarlo de manera segura en HTML/JS."""
+def data_uri(path):
     if not path or not path.exists():
         return ""
-    mime_map = {
-        ".mp4": "video/mp4",
-        ".webm": "video/webm",
-        ".mov": "video/quicktime",
-        ".mp3": "audio/mpeg",
-        ".wav": "audio/wav",
-        ".ogg": "audio/ogg",
-        ".jpg": "image/jpeg",
-        ".jpeg": "image/jpeg",
-        ".png": "image/png",
-        ".webp": "image/webp",
-    }
-    mime = mime_map.get(path.suffix.lower(), "application/octet-stream")
-    b64_data = base64.b64encode(path.read_bytes()).decode("utf-8")
-    return f"data:{mime};base64,{b64_data}"
+    mime = mimetypes.guess_type(path.name)[0] or "application/octet-stream"
+    encoded = base64.b64encode(path.read_bytes()).decode("ascii")
+    return f"data:{mime};base64,{encoded}"
 
+VIDEO = data_uri(find_asset("VIDEO"))
+VPINICIO = data_uri(find_asset("VPINICIO"))
+M1 = data_uri(find_asset("M1"))
+PHOTOS = [data_uri(find_asset(f"F{i}")) for i in range(1, 19)]
 
-# Cargar rutas de recursos clave
-video_intro_path = find_asset("VIDEO")
-vpinicio_path = find_asset("VPINICIO")
-audio_m1_path = find_asset("M1")
+photo_json = "[" + ",".join(repr(x) for x in PHOTOS if x) + "]"
 
-video_intro_b64 = get_asset_base64(video_intro_path) if video_intro_path else ""
-vpinicio_b64 = get_asset_base64(vpinicio_path) if vpinicio_path else ""
-audio_m1_b64 = get_asset_base64(audio_m1_path) if audio_m1_path else ""
-
-# Cargar colección de fotografías F1–F18
-photos_b64 = {}
-for i in range(1, 19):
-    p = find_asset(f"F{i}")
-    if p:
-        photos_b64[f"F{i}"] = get_asset_base64(p)
-
-# Estilos CSS editoriales, sobrios y cinematográficos (sin estética dashboard)
-st.markdown(
-    """
+html = r"""
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pijao, Ciudad Sin Prisa</title>
 <style>
-    @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@300;400;500;600&display=swap');
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{
+    margin:0;
+    padding:0;
+    background:#f5f1e9;
+    color:#292825;
+    font-family:Arial,Helvetica,sans-serif;
+}
+button,a{font:inherit}
+button{cursor:pointer}
+.hidden{display:none!important}
 
-    html, body, [class*="css"] {
-        font-family: 'Plus Jakarta Sans', sans-serif;
-        background-color: #FAF8F5;
-        color: #2C2A29;
-    }
+/* ---------- BIENVENIDA: PÁGINA REAL DE INICIO ---------- */
+#welcome{
+    position:relative;
+    width:100%;
+    min-height:100vh;
+    height:100vh;
+    overflow:hidden;
+    background:#11110f;
+    color:#f8f4ec;
+}
+#welcome-photo{
+    position:absolute;
+    inset:0;
+    width:100%;
+    height:100%;
+    background-size:cover;
+    background-position:center;
+    opacity:0;
+    transition:opacity 2.2s ease;
+    z-index:1;
+}
+#welcome-shade{
+    position:absolute;
+    inset:0;
+    background:
+      linear-gradient(180deg,rgba(0,0,0,.55),rgba(0,0,0,.25) 42%,rgba(0,0,0,.68)),
+      radial-gradient(circle at center,transparent 30%,rgba(0,0,0,.32) 100%);
+    z-index:3;
+}
+#welcome-video{
+    position:absolute;
+    left:50%;
+    top:50%;
+    transform:translate(-50%,-50%);
+    width:min(84vw,1100px);
+    height:min(54vh,620px);
+    object-fit:cover;
+    object-position:center;
+    opacity:0;
+    transition:opacity 1.8s ease;
+    z-index:2;
+    box-shadow:0 20px 80px rgba(0,0,0,.42);
+    border-radius:2px;
+}
+.welcome-copy{
+    position:absolute;
+    inset:0;
+    z-index:5;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    text-align:center;
+    padding:32px;
+    pointer-events:none;
+}
+#welcome-title{
+    margin:0 0 12px;
+    font-family:Georgia,"Times New Roman",serif;
+    font-weight:400;
+    font-size:clamp(2.2rem,5vw,5.1rem);
+    letter-spacing:.11em;
+    line-height:1.08;
+    text-shadow:0 5px 28px rgba(0,0,0,.6);
+    opacity:0;
+    transform:translateY(16px);
+    transition:opacity 1.5s ease,transform 1.5s ease;
+}
+#welcome-subtitle{
+    margin:0;
+    max-width:720px;
+    color:#e7e1d7;
+    font-size:clamp(.95rem,1.6vw,1.2rem);
+    letter-spacing:.04em;
+    opacity:0;
+    transform:translateY(12px);
+    transition:opacity 1.5s ease .2s,transform 1.5s ease .2s;
+}
+#welcome-action{
+    position:absolute;
+    left:50%;
+    bottom:9vh;
+    transform:translateX(-50%) translateY(15px);
+    z-index:7;
+    opacity:0;
+    transition:opacity 1.4s ease,transform 1.4s ease;
+    pointer-events:auto;
+}
+#start-button{
+    color:#f8f4ec;
+    background:rgba(24,25,21,.35);
+    border:1px solid rgba(248,244,236,.72);
+    padding:14px 32px;
+    letter-spacing:.18em;
+    font-size:.78rem;
+    transition:.35s ease;
+    backdrop-filter:blur(6px);
+}
+#start-button:hover{
+    background:#f8f4ec;
+    color:#24231f;
+}
+.fade-in{opacity:1!important;transform:translateY(0)!important}
 
-    /* Ocultar elementos nativos de Streamlit */
-    header, footer, [data-testid="stHeader"] {visibility: hidden; display: none;}
-    .block-container {padding: 0 !important; max-width: 100% !important;}
+/* ---------- EXPERIENCIA ---------- */
+#journey{
+    display:none;
+    background:#f5f1e9;
+}
+#journey.visible{display:block;animation:pageIn 1.2s ease both}
+@keyframes pageIn{from{opacity:0}to{opacity:1}}
 
-    h1, h2, h3, h4, .serif-title {
-        font-family: 'Cinzel', serif;
-        font-weight: 500;
-        color: #1F1E1D;
-        letter-spacing: 0.05em;
-    }
+.nav{
+    position:sticky;
+    top:0;
+    z-index:50;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:24px;
+    padding:16px 5%;
+    background:rgba(245,241,233,.94);
+    border-bottom:1px solid rgba(45,43,39,.1);
+    backdrop-filter:blur(14px);
+}
+.brand{
+    color:#292825;
+    text-decoration:none;
+    font-family:Georgia,"Times New Roman",serif;
+    letter-spacing:.12em;
+    font-size:1.05rem;
+    white-space:nowrap;
+}
+.navlinks{
+    display:flex;
+    flex-wrap:wrap;
+    justify-content:flex-end;
+    gap:20px;
+}
+.navlinks a{
+    color:#59554e;
+    text-decoration:none;
+    font-size:.78rem;
+    letter-spacing:.05em;
+}
+.navlinks a:hover{color:#20201c}
 
-    /* Contenedor de bienvenida cinematográfica */
-    .welcome-container {
-        position: relative;
-        width: 100vw;
-        height: 100vh;
-        background-color: #111110;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        overflow: hidden;
-    }
+.audio-control{
+    position:fixed;
+    right:22px;
+    bottom:22px;
+    z-index:100;
+}
+.audio-toggle{
+    border:1px solid rgba(248,244,236,.25);
+    background:rgba(28,29,25,.92);
+    color:#f8f4ec;
+    padding:11px 16px;
+    font-size:.72rem;
+    letter-spacing:.09em;
+    box-shadow:0 8px 28px rgba(0,0,0,.18);
+}
+.audio-toggle:hover{background:#171814}
+.audio-status{
+    display:none;
+    margin-bottom:8px;
+    background:rgba(28,29,25,.94);
+    color:#eee9df;
+    padding:10px 13px;
+    font-size:.7rem;
+    letter-spacing:.06em;
+}
+.audio-control.open .audio-status{display:block}
 
-    .welcome-content {
-        position: absolute;
-        z-index: 10;
-        text-align: center;
-        color: #FAF8F5;
-        padding: 0 20px;
-        transition: opacity 1.5s ease;
-    }
+.hero-journey{
+    min-height:74vh;
+    background:#11110f;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    overflow:hidden;
+}
+#vpinicio{
+    width:100%;
+    max-height:78vh;
+    object-fit:cover;
+    display:block;
+}
 
-    .welcome-title {
-        font-family: 'Cinzel', serif;
-        font-size: clamp(2.5rem, 5vw, 4.5rem);
-        font-weight: 600;
-        margin-bottom: 10px;
-        letter-spacing: 0.08em;
-        text-shadow: 0 4px 20px rgba(0,0,0,0.6);
-        animation: fadeIn 2s ease forwards;
-    }
+.section{
+    padding:110px 7%;
+    border-bottom:1px solid rgba(47,44,39,.1);
+}
+.section.alt{background:#ebe5da}
+.section-inner{max-width:1120px;margin:auto}
+.kicker{
+    color:#6a715a;
+    text-transform:uppercase;
+    letter-spacing:.2em;
+    font-size:.72rem;
+    margin-bottom:14px;
+}
+h2{
+    margin:0 0 22px;
+    font-family:Georgia,"Times New Roman",serif;
+    font-size:clamp(2rem,4vw,3.5rem);
+    font-weight:400;
+    line-height:1.1;
+}
+p{
+    line-height:1.85;
+    color:#57534d;
+    font-size:1rem;
+}
+.lead{
+    max-width:800px;
+    font-size:1.08rem;
+}
+.video-section{
+    background:#171713;
+    color:#f7f2e9;
+}
+.video-section h2,.video-section p{color:#f7f2e9}
+.main-video-wrap{
+    max-width:1100px;
+    margin:48px auto 0;
+}
+#main-video{
+    display:block;
+    width:100%;
+    max-height:72vh;
+    object-fit:cover;
+    object-position:center;
+    background:#000;
+}
+.caption{
+    margin-top:15px;
+    font-size:.76rem;
+    color:#bdb7ac;
+    letter-spacing:.05em;
+}
 
-    .welcome-subtitle {
-        font-size: clamp(1rem, 2vw, 1.3rem);
-        font-weight: 300;
-        color: #E2DFDB;
-        margin-bottom: 30px;
-        letter-spacing: 0.04em;
-        animation: fadeIn 2.5s ease forwards;
-    }
+.image-large{
+    width:100%;
+    display:block;
+    max-height:680px;
+    object-fit:cover;
+}
+.split{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:60px;
+    align-items:center;
+}
+.gallery{
+    display:grid;
+    grid-template-columns:1.2fr .8fr;
+    gap:18px;
+    margin-top:40px;
+}
+.gallery img{
+    width:100%;
+    height:360px;
+    object-fit:cover;
+    display:block;
+}
+.gallery img:first-child{
+    height:520px;
+    grid-row:span 2;
+}
+.three{
+    display:grid;
+    grid-template-columns:repeat(3,1fr);
+    gap:22px;
+    margin-top:40px;
+}
+.card{
+    background:#f8f4ec;
+    border:1px solid #ddd5c8;
+    padding:28px;
+}
+.card h3{
+    font-family:Georgia,"Times New Roman",serif;
+    font-size:1.3rem;
+    font-weight:400;
+    margin:0 0 10px;
+}
+.card p{font-size:.9rem;margin:0}
+.f13{
+    width:100%;
+    max-height:720px;
+    object-fit:cover;
+    display:block;
+}
+.youtube{
+    display:inline-block;
+    margin-top:18px;
+    padding:13px 25px;
+    background:#282823;
+    color:#f8f4ec;
+    text-decoration:none;
+    font-size:.76rem;
+    letter-spacing:.12em;
+}
+.youtube:hover{background:#4d4a42}
 
-    .editorial-btn {
-        background: transparent;
-        color: #FAF8F5;
-        border: 1px solid rgba(250, 248, 245, 0.6);
-        padding: 12px 36px;
-        font-family: 'Cinzel', serif;
-        font-size: 0.95rem;
-        letter-spacing: 0.2em;
-        cursor: pointer;
-        transition: all 0.4s ease;
-        opacity: 0;
-        animation: fadeIn 3s ease forwards 1s;
-    }
+.timeline{
+    max-width:850px;
+    margin:45px auto 0;
+    border-left:1px solid #bcb4a6;
+    padding-left:30px;
+}
+.event{
+    position:relative;
+    margin-bottom:38px;
+}
+.event:before{
+    content:"";
+    position:absolute;
+    left:-36px;
+    top:5px;
+    width:10px;
+    height:10px;
+    border:2px solid #f5f1e9;
+    background:#6b725c;
+    border-radius:50%;
+}
+.event-year{
+    font-family:Georgia,"Times New Roman",serif;
+    font-size:1.35rem;
+}
+.event-text{
+    color:#5c5750;
+    margin-top:5px;
+    line-height:1.65;
+}
+.categories{
+    display:grid;
+    grid-template-columns:repeat(3,1fr);
+    gap:20px;
+    margin-top:38px;
+}
+.category{
+    min-height:170px;
+    padding:30px;
+    background:#f8f4ec;
+    border:1px solid #ddd5c8;
+    transition:transform .3s ease;
+}
+.category:hover{transform:translateY(-3px)}
+.category h3{
+    font-family:Georgia,"Times New Roman",serif;
+    font-weight:400;
+    margin:0 0 12px;
+}
+.category p{font-size:.88rem;margin:0}
 
-    .editorial-btn:hover {
-        background: #FAF8F5;
-        color: #1F1E1D;
-        border-color: #FAF8F5;
-    }
+.location-list{
+    display:grid;
+    grid-template-columns:repeat(5,1fr);
+    gap:12px;
+    margin-top:35px;
+}
+.location-item{
+    border-top:1px solid #bcb4a6;
+    padding-top:14px;
+}
+.location-item strong{display:block;font-family:Georgia,serif;font-weight:400;margin-bottom:4px}
+.location-item span{font-size:.86rem;color:#625d55}
 
-    @keyframes fadeIn {
-        from { opacity: 0; transform: translateY(10px); }
-        to { opacity: 1; transform: translateY(0); }
-    }
+#recorrido-audiovisual .recorrido{
+    max-width:1000px;
+    margin:45px auto 0;
+    text-align:center;
+}
+.counter{
+    color:#6a715a;
+    font-size:.74rem;
+    letter-spacing:.2em;
+    margin-bottom:18px;
+}
+#recorrido-media{
+    background:#171713;
+    min-height:420px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    margin:25px 0;
+}
+#recorrido-media img,#recorrido-media video{
+    display:block;
+    width:100%;
+    max-height:650px;
+    object-fit:contain;
+}
+.phrase{
+    font-family:Georgia,"Times New Roman",serif;
+    font-style:italic;
+    font-size:1.35rem;
+    line-height:1.5;
+    max-width:760px;
+    margin:25px auto;
+}
+.recorrido-controls{
+    display:flex;
+    justify-content:center;
+    gap:14px;
+}
+.recorrido-controls button{
+    padding:12px 22px;
+    border:1px solid #bcb4a6;
+    background:transparent;
+    color:#292825;
+    letter-spacing:.08em;
+    font-size:.72rem;
+}
+.recorrido-controls button:hover{background:#292825;color:#f8f4ec}
 
-    /* Elemento de video y slideshow de fondo */
-    .bg-media-layer {
-        position: absolute;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        object-fit: cover;
-        z-index: 1;
-        opacity: 0.8;
-    }
+.back-home{
+    display:inline-block;
+    margin-top:45px;
+    color:#625d55;
+    text-decoration:none;
+    border-bottom:1px solid #9e9689;
+    padding-bottom:5px;
+    font-size:.76rem;
+    letter-spacing:.1em;
+}
+.footer{
+    padding:70px 7%;
+    background:#22221e;
+    color:#eee8dc;
+    text-align:center;
+}
+.footer h3{
+    font-family:Georgia,"Times New Roman",serif;
+    font-weight:400;
+    letter-spacing:.1em;
+}
+.footer p{color:#aaa59b;font-size:.86rem}
 
-    .bg-photo-layer {
-        position: absolute;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        background-size: cover;
-        background-position: center;
-        z-index: 2;
-        opacity: 0;
-        transition: opacity 2s cubic-bezier(0.4, 0, 0.2, 1);
-    }
-
-    .vignette-overlay {
-        position: absolute;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        background: linear-gradient(180deg, rgba(17,17,16,0.3) 0%, rgba(17,17,16,0.7) 100%);
-        z-index: 3;
-    }
-
-    /* Navegación Principal */
-    .nav-bar {
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        background: rgba(250, 248, 245, 0.92);
-        backdrop-filter: blur(10px);
-        z-index: 1000;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        padding: 18px 5%;
-        border-bottom: 1px solid rgba(44, 42, 41, 0.08);
-    }
-
-    .nav-brand {
-        font-family: 'Cinzel', serif;
-        font-weight: 600;
-        font-size: 1.1rem;
-        letter-spacing: 0.15em;
-        color: #1F1E1D;
-        text-decoration: none;
-    }
-
-    .nav-links {
-        display: flex;
-        gap: 28px;
-        list-style: none;
-        margin: 0;
-        padding: 0;
-    }
-
-    .nav-links a {
-        font-size: 0.85rem;
-        font-weight: 500;
-        color: #5A5652;
-        text-decoration: none;
-        letter-spacing: 0.05em;
-        transition: color 0.3s ease;
-    }
-
-    .nav-links a:hover {
-        color: #1F1E1D;
-    }
-
-    /* Control de Audio Flotante */
-    .audio-control-container {
-        position: fixed;
-        bottom: 30px;
-        right: 30px;
-        z-index: 1100;
-    }
-
-    .audio-btn {
-        background: rgba(31, 30, 29, 0.85);
-        color: #FAF8F5;
-        border: 1px solid rgba(250, 248, 245, 0.2);
-        padding: 10px 18px;
-        border-radius: 30px;
-        font-family: 'Plus Jakarta Sans', sans-serif;
-        font-size: 0.8rem;
-        letter-spacing: 0.1em;
-        cursor: pointer;
-        backdrop-filter: blur(5px);
-        transition: all 0.3s ease;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.2);
-    }
-
-    .audio-btn:hover {
-        background: #1F1E1D;
-        transform: scale(1.03);
-    }
-
-    /* Secciones Editoriales */
-    .editorial-section {
-        padding: 120px 10% 80px 10%;
-        background-color: #FAF8F5;
-        border-bottom: 1px solid #EBE7E1;
-    }
-
-    .editorial-section.alt {
-        background-color: #F2EFE9;
-    }
-
-    .section-title {
-        font-size: clamp(2rem, 3.5vw, 3rem);
-        margin-bottom: 24px;
-        color: #1F1E1D;
-    }
-
-    .section-subtitle {
-        font-family: 'Cinzel', serif;
-        font-size: 0.9rem;
-        letter-spacing: 0.2em;
-        text-transform: uppercase;
-        color: #6B705C;
-        margin-bottom: 12px;
-    }
-
-    .editorial-text {
-        font-size: 1.05rem;
-        line-height: 1.8;
-        color: #4A4643;
-        font-weight: 300;
-        margin-bottom: 20px;
-    }
-
-    /* Línea de Tiempo */
-    .timeline-container {
-        position: relative;
-        margin-top: 50px;
-        padding-left: 30px;
-        border-left: 1px solid #D4CE3;
-    }
-
-    .timeline-item {
-        position: relative;
-        margin-bottom: 40px;
-    }
-
-    .timeline-item::before {
-        content: '';
-        position: absolute;
-        left: -35.5px;
-        top: 6px;
-        width: 11px;
-        height: 11px;
-        border-radius: 50%;
-        background: #6B705C;
-        border: 2px solid #FAF8F5;
-    }
-
-    .timeline-year {
-        font-family: 'Cinzel', serif;
-        font-size: 1.2rem;
-        font-weight: 600;
-        color: #1F1E1D;
-        margin-bottom: 6px;
-    }
-
-    .timeline-desc {
-        font-size: 0.95rem;
-        color: #5A5652;
-        line-height: 1.6;
-    }
-
-    /* Categorías Descubre Pijao */
-    .category-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-        gap: 30px;
-        margin-top: 40px;
-    }
-
-    .category-card {
-        background: #FAF8F5;
-        padding: 40px 30px;
-        border: 1px solid #E4E0D8;
-        transition: transform 0.3s ease, box-shadow 0.3s ease;
-    }
-
-    .category-card:hover {
-        transform: translateY(-4px);
-        box-shadow: 0 10px 30px rgba(0,0,0,0.04);
-    }
-
-    .category-title {
-        font-family: 'Cinzel', serif;
-        font-size: 1.25rem;
-        margin-bottom: 15px;
-        color: #1F1E1D;
-    }
-
-    .category-text {
-        font-size: 0.92rem;
-        color: #605C58;
-        line-height: 1.7;
-    }
-
-    /* Recorrido Audiovisual Manual */
-    .recorrido-box {
-        background: #F2EFE9;
-        border: 1px solid #E4E0D8;
-        padding: 50px;
-        text-align: center;
-        margin-top: 40px;
-    }
-
-    .recorrido-counter {
-        font-family: 'Cinzel', serif;
-        font-size: 0.9rem;
-        letter-spacing: 0.2em;
-        color: #6B705C;
-        margin-bottom: 20px;
-    }
-
-    .recorrido-phrase {
-        font-family: 'Cinzel', serif;
-        font-size: 1.3rem;
-        color: #1F1E1D;
-        margin-bottom: 30px;
-        line-height: 1.5;
-        font-style: italic;
-    }
-
-    .recorrido-nav-btns {
-        display: flex;
-        justify-content: center;
-        gap: 20px;
-        margin-top: 30px;
-    }
-
-    .editorial-link-btn {
-        display: inline-block;
-        background: #1F1E1D;
-        color: #FAF8F5;
-        padding: 14px 32px;
-        font-family: 'Cinzel', serif;
-        font-size: 0.85rem;
-        letter-spacing: 0.15em;
-        text-decoration: none;
-        margin-top: 20px;
-        transition: background 0.3s ease;
-    }
-
-    .editorial-link-btn:hover {
-        background: #4A4643;
-        color: #FAF8F5;
-    }
-
-    @media(max-width: 768px) {
-        .nav-links {display: none;}
-        .editorial-section {padding: 90px 6% 60px 6%;}
-    }
+@media(max-width:900px){
+    .navlinks{display:none}
+    .split{grid-template-columns:1fr;gap:35px}
+    .three,.categories{grid-template-columns:1fr 1fr}
+    .location-list{grid-template-columns:repeat(2,1fr)}
+}
+@media(max-width:600px){
+    #welcome-video{width:92vw;height:42vh}
+    #welcome-title{font-size:2.15rem}
+    #welcome-action{bottom:6vh}
+    .section{padding:80px 6%}
+    .three,.categories,.location-list,.gallery{grid-template-columns:1fr}
+    .gallery img,.gallery img:first-child{height:330px;grid-row:auto}
+    .audio-control{right:12px;bottom:12px}
+    .phrase{font-size:1.1rem}
+}
 </style>
-""",
-    unsafe_allow_html=True,
-)
+</head>
+<body>
 
-# Inicializar estado de navegación interna si es necesario
-if "nav_state" not in st.session_state:
-    st.session_state.nav_state = "inicio"
+<!-- =========================================================
+     PÁGINA 1 — INICIO / BIENVENIDA
+     ========================================================= -->
+<section id="welcome">
+    <div id="welcome-photo"></div>
 
-# ----------------------------------------------------
-# 1. PÁGINA DE BIENVENIDA — SECUENCIA CINEMATOGRÁFICA
-# ----------------------------------------------------
-photos_json_keys = list(photos_b64.keys())
-photos_json_values = list(photos_b64.values())
-
-photos_js_array = str(photos_json_values).replace("'", '"')
-
-welcome_html = f"""
-<div id="welcome-wrapper" class="welcome-container">
-    <video id="intro-video" class="bg-media-layer" autoplay muted playsinline>
-        <source src="{video_intro_b64}" type="video/mp4">
+    <video id="welcome-video" autoplay muted playsinline preload="auto">
+        __VIDEO_SOURCE__
     </video>
-    <div id="photo-bg" class="bg-photo-layer"></div>
-    <div class="vignette-overlay"></div>
-    
-    <div class="welcome-content" id="welcome-content">
-        <h1 class="welcome-title">PIJAO, CIUDAD SIN PRISA</h1>
-        <p class="welcome-subtitle">Te invitamos a recorrer lento a nuestro municipio</p>
-        <button class="editorial-btn" onclick="iniciarTravesia()">INICIAR TRAVESÍA</button>
+
+    <div id="welcome-shade"></div>
+
+    <div class="welcome-copy">
+        <h1 id="welcome-title">PIJAO, CIUDAD SIN PRISA</h1>
+        <p id="welcome-subtitle">Te invitamos a recorrer lento a nuestro municipio</p>
     </div>
-</div>
 
-<script>
-    const video = document.getElementById('intro-video');
-    const photoBg = document.getElementById('photo-bg');
-    const photos = {photos_js_array};
-    let photoInterval = null;
-    let currentPhotoIdx = 0;
-
-    // Cuando termina el video principal de bienvenida (22s aprox)
-    if (video) {{
-        video.onended = function() {{
-            setTimeout(() => {{
-                if (photos.length > 0) {{
-                    startPhotoSlideshow();
-                }}
-            }}, 1000);
-        }};
-    }}
-
-    function startPhotoSlideshow() {{
-        if (photos.length === 0) return;
-        
-        // Mostrar primera foto
-        photoBg.style.backgroundImage = `url('${{photos[currentPhotoIdx]}}')`;
-        photoBg.style.opacity = '0.75';
-        
-        photoInterval = setInterval(() => {{
-            currentPhotoIdx = (currentPhotoIdx + 1) % photos.length;
-            photoBg.style.opacity = '0';
-            setTimeout(() => {{
-                photoBg.style.backgroundImage = `url('${{photos[currentPhotoIdx]}}')`;
-                photoBg.style.opacity = '0.75';
-            }}, 1000); // Duración de transición fade
-        }}, 5000); // Cambio cada 5 segundos
-    }}
-
-    function iniciarTravesia() {{
-        if (photoInterval) clearInterval(photoInterval);
-        
-        // Reproducir audio M1 si está disponible y activar sonido
-        const audioEl = document.getElementById('global-audio-m1');
-        if (audioEl) {{
-            audioEl.muted = false;
-            audioEl.play().catch(e => console.log("Autoplay con interacción habilitado"));
-            const audioBtnText = document.getElementById('audio-btn-text');
-            if (audioBtnText) audioBtnText.innerText = "◖ SONIDO ACTIVO";
-        }}
-
-        // Desplazamiento suave hacia la segunda sección
-        const target = document.getElementById('seccion-principal');
-        if (target) {{
-            target.scrollIntoView({{ behavior: 'smooth' }});
-        }}
-    }}
-</script>
-"""
-
-st.markdown(welcome_html, unsafe_allow_html=True)
-
-# ----------------------------------------------------
-# CONTROL DE AUDIO REAL M1
-# ----------------------------------------------------
-audio_html = f"""
-<audio id="global-audio-m1" loop autoplay muted>
-    <source src="{audio_m1_b64}" type="audio/mpeg">
-</audio>
-
-<div class="audio-control-container">
-    <button class="audio-btn" onclick="toggleAudio()" id="audio-btn-element">
-        <span id="audio-btn-text">◖ QUITAR SONIDO</span>
-    </button>
-</div>
-
-<script>
-    function toggleAudio() {{
-        const audio = document.getElementById('global-audio-m1');
-        const btnText = document.getElementById('audio-btn-text');
-        if (!audio) return;
-        
-        if (audio.muted) {{
-            audio.muted = false;
-            audio.play().catch(e => console.log("Play interactivo requerido"));
-            btnText.innerText = "◖ QUITAR SONIDO";
-        }} else {{
-            audio.muted = true;
-            btnText.innerText = "◖ ACTIVAR SONIDO";
-        }}
-    }}
-</script>
-"""
-st.markdown(audio_html, unsafe_allow_html=True)
-
-# ----------------------------------------------------
-# NAVEGACIÓN PRINCIPAL FIJA
-# ----------------------------------------------------
-navbar_html = """
-<nav class="nav-bar">
-    <a href="#seccion-principal" class="nav-brand">PIJAO</a>
-    <ul class="nav-links">
-        <li><a href="#casas-ayer">Casas del ayer</a></li>
-        <li><a href="#historia-guerreros">Historia</a></li>
-        <li><a href="#conoce-pijao">Conoce Pijao</a></li>
-        <li><a href="#territorio">Territorio</a></li>
-        <li><a href="#descubre-pijao">Descubre Pijao</a></li>
-        <li><a href="#recorrido-audiovisual">Recorrido audiovisual</a></li>
-    </ul>
-</nav>
-<div id="seccion-principal" style="height: 20px;"></div>
-"""
-st.markdown(navbar_html, unsafe_allow_html=True)
-
-# ----------------------------------------------------
-# 2. SEGUNDA PARTE — VPINICIO & INTRODUCCIÓN
-# ----------------------------------------------------
-st.markdown(
-    """
-<section class="editorial-section">
-    <div style="max-width: 900px; margin: 0 auto; text-align: center;">
-        <p class="section-subtitle">Territorio y Memoria</p>
-        <h2 class="section-title">Una experiencia sin prisa</h2>
-        <p class="editorial-text">
-            Pijao es un refugio en la Cordillera Central de los Andes colombianos donde el tiempo adquiere otra dimensión. 
-            Lejos del vértigo contemporáneo, este municipio invita a caminar lento, a observar los detalles de su arquitectura 
-            en bahareque y madera, y a escuchar las conversaciones en la plaza principal frente a una taza de café cultivado 
-            con respeto por la tierra.
-        </p>
+    <div id="welcome-action">
+        <button id="start-button" type="button">INICIAR TRAVESÍA</button>
     </div>
 </section>
-""",
-    unsafe_allow_html=True,
-)
 
-if vpinicio_path and vpinicio_path.exists():
-    st.markdown(
-        f"""
-    <div style="width: 100%; background: #111110; padding: 40px 0; text-align: center;">
-        <div style="max-width: 1100px; margin: 0 auto; padding: 0 20px;">
-            <video width="100%" autoplay muted loop playsinline style="border-radius: 4px; box-shadow: 0 20px 40px rgba(0,0,0,0.3);">
-                <source src="{vpinicio_b64}" type="video/mp4">
-                Tu navegador no soporta video HTML5.
-            </video>
+<!-- =========================================================
+     PÁGINA 2 — TRAVESÍA
+     ========================================================= -->
+<main id="journey">
+
+    <nav class="nav">
+        <a class="brand" href="#top">PIJAO</a>
+        <div class="navlinks">
+            <a href="#inicio-experiencia">Inicio</a>
+            <a href="#casas-ayer">Casas del ayer</a>
+            <a href="#historia-guerreros">Historia</a>
+            <a href="#conoce-pijao">Conoce Pijao</a>
+            <a href="#territorio">Territorio</a>
+            <a href="#descubre-pijao">Descubre Pijao</a>
+            <a href="#recorrido-audiovisual">Recorrido audiovisual</a>
         </div>
+    </nav>
+
+    <div id="top"></div>
+
+    <section class="hero-journey" id="inicio-experiencia">
+        <video id="vpinicio" autoplay muted playsinline loop preload="auto">
+            __VPINICIO_SOURCE__
+        </video>
+    </section>
+
+    <audio id="m1" loop preload="auto">
+        __M1_SOURCE__
+    </audio>
+
+    <div class="audio-control" id="audio-control">
+        <div class="audio-status" id="audio-status">SONIDO ACTIVO</div>
+        <button class="audio-toggle" id="audio-toggle" type="button">◖ SONIDO</button>
     </div>
-    """,
-        unsafe_allow_html=True,
-    )
 
-# ----------------------------------------------------
-# 3. SECCIÓN: VIDEO CINEMATOGRÁFICO PRINCIPAL
-# ----------------------------------------------------
-st.markdown(
-    """
-<section class="editorial-section alt">
-    <div style="max-width: 900px; margin: 0 auto; text-align: center; margin-bottom: 40px;">
-        <p class="section-subtitle">Documental y Paisaje</p>
-        <h2 class="section-title">El latido de la montaña</h2>
-        <p class="editorial-text">
-            Una mirada cinematográfica a la cotidianidad, los caminos y el pulso apacible de una comunidad que protege su identidad cultural.
-        </p>
-    </div>
-</section>
-""",
-    unsafe_allow_html=True,
-)
-
-if video_intro_path and video_intro_path.exists():
-    st.markdown(
-        f"""
-    <div style="width: 100%; background: #111110; padding: 20px 0 60px 0; text-align: center;">
-        <div style="max-width: 1100px; margin: 0 auto; padding: 0 20px;">
-            <video width="100%" controls preload="auto" style="border-radius: 4px; box-shadow: 0 20px 40px rgba(0,0,0,0.4);">
-                <source src="{video_intro_b64}" type="video/mp4">
-                Tu navegador no soporta video HTML5.
-            </video>
-        </div>
-    </div>
-    """,
-        unsafe_allow_html=True,
-    )
-
-# ----------------------------------------------------
-# 4. CASAS DEL AYER
-# ----------------------------------------------------
-st.markdown(
-    """
-<div id="casas-ayer"></div>
-<section class="editorial-section">
-    <div style="max-width: 1100px; margin: 0 auto;">
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 60px; align-items: center;">
-            <div>
-                <p class="section-subtitle">Patrimonio Arquitectónico</p>
-                <h2 class="section-title">Casas del ayer</h2>
-                <p class="editorial-text">
-                    La arquitectura tradicional de Pijao es un testimonio vivo de la colonización antioqueña y la maestría 
-                    en el uso del bahareque, la guadua y la madera. Sus viviendas exhiben coloridos balcones florecidos, 
-                    aleros generosos diseñados para proteger las paredes de las lluvias cordilleranas y zaguanes que conectan 
-                    la intimidad del hogar con la vida apacible de la calle.
-                </p>
-                <p class="editorial-text">
-                    Cada fachada conserva la memoria carpintera de antaño, resistiendo al tiempo sin perder la elegancia 
-                    de las formas simples y auténticas del paisaje cultural cafetero.
-                </p>
-            </div>
-""",
-    unsafe_allow_html=True,
-)
-
-# Mostrar F1 o F3 como ilustración de casas del ayer si existen
-casa_img = photos_b64.get("F1") or photos_b64.get("F3")
-if casa_img:
-    st.markdown(
-        f"""
-            <div>
-                <img src="{casa_img}" alt="Casas del ayer" style="width: 100%; height: auto; border-radius: 2px; box-shadow: 0 15px 35px rgba(0,0,0,0.08); object-fit: cover;">
-            </div>
-        """,
-        unsafe_allow_html=True,
-    )
-
-st.markdown(
-    """
-        </div>
-    </div>
-</section>
-""",
-    unsafe_allow_html=True,
-)
-
-# ----------------------------------------------------
-# 5. HISTORIA DE GUERREROS
-# ----------------------------------------------------
-st.markdown(
-    """
-<div id="historia-guerreros"></div>
-<section class="editorial-section alt">
-    <div style="max-width: 1100px; margin: 0 auto;">
-        <div style="max-width: 800px; margin-bottom: 50px;">
-            <p class="section-subtitle">Raíces y Profundidad</p>
-            <h2 class="section-title">Historia de guerreros</h2>
-            <p class="editorial-text">
-                El nombre de Pijao evoca a la valerosa estirpe indígena que habitó y defendió estos escarpados territorios 
-                de la cordillera central. Más allá de las crónicas de conquista, el espíritu de aquellos pobladores originales 
-                pervive en la dignidad cotidiana de sus habitantes actuales, en su vínculo indisoluble con la montaña y en su 
-                capacidad de resistencia cultural a través de las décadas.
+    <section class="section">
+        <div class="section-inner">
+            <div class="kicker">Territorio y memoria</div>
+            <h2>Una experiencia sin prisa</h2>
+            <p class="lead">
+                Pijao invita a cambiar el ritmo: caminar, observar, escuchar y reconocer
+                el paisaje, la arquitectura, la memoria y las pequeñas escenas que hacen
+                parte de la vida cotidiana.
             </p>
+            <a class="back-home" href="#welcome">VOLVER AL INICIO</a>
         </div>
-""",
-    unsafe_allow_html=True,
-)
+    </section>
 
-# Galería fotográfica histórica utilizando F2, F5, F6, F16, F17
-hist_imgs = [
-    photos_b64.get(k) for k in ["F2", "F5", "F6", "F16", "F17"] if k in photos_b64
-]
-if hist_imgs:
-    st.markdown(
-        """
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 20px; margin-top: 30px;">
-    """,
-        unsafe_allow_html=True,
-    )
-    for img_src in hist_imgs[:4]:
-        st.markdown(
-            f"""
-            <div style="overflow: hidden; border-radius: 2px;">
-                <img src="{img_src}" style="width: 100%; height: 260px; object-fit: cover; transition: transform 0.5s ease;" onmouseover="this.style.transform='scale(1.03)'" onmouseout="this.style.transform='scale(1)'">
-            </div>
-        """,
-            unsafe_allow_html=True,
-        )
-    st.markdown("</div>", unsafe_allow_html=True)
-
-st.markdown(
-    """
-    </div>
-</section>
-""",
-    unsafe_allow_html=True,
-)
-
-# ----------------------------------------------------
-# 6. CONOCE PIJAO
-# ----------------------------------------------------
-st.markdown(
-    """
-<div id="conoce-pijao"></div>
-<section class="editorial-section">
-    <div style="max-width: 1100px; margin: 0 auto;">
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 60px; align-items: center;">
-""",
-    unsafe_allow_html=True,
-)
-
-f13_img = photos_b64.get("F13")
-if f13_img:
-    st.markdown(
-        f"""
-            <div>
-                <img src="{f13_img}" alt="Pijao" style="width: 100%; height: auto; border-radius: 2px; box-shadow: 0 15px 35px rgba(0,0,0,0.08); object-fit: cover;">
-            </div>
-        """,
-        unsafe_allow_html=True,
-    )
-
-st.markdown(
-    """
-            <div>
-                <p class="section-subtitle">Destino y Filosofía</p>
-                <h2 class="section-title">Conoce Pijao</h2>
-                <p class="editorial-text">
-                    Ubicado al sur del departamento del Quindío, Pijao es reconocido internacionalmente como el primer municipio 
-                    de Suramérica en obtener la certificación <em>Cittaslow</em> (Ciudad Sin Prisa). Aquí se promueve un modelo 
-                    de turismo responsable y sostenible que valora la tranquilidad, el comercio local, la gastronomía tradicional 
-                    y la preservación del patrimonio natural.
-                </p>
-                <a href="https://www.youtube.com/watch?v=UPRAk3g7YVg" target="_blank" class="editorial-link-btn">CONOCE MÁS</a>
+    <!-- VIDEO PRINCIPAL -->
+    <section class="section video-section" id="video-cinematografico">
+        <div class="section-inner">
+            <div class="kicker" style="color:#aab095">Registro audiovisual</div>
+            <h2>El latido de la montaña</h2>
+            <p class="lead">
+                Una mirada audiovisual a Pijao y a la atmósfera pausada de su territorio.
+            </p>
+            <div class="main-video-wrap">
+                <video id="main-video" controls playsinline preload="metadata">
+                    __VIDEO_SOURCE__
+                </video>
+                <div class="caption">VIDEO · reproducción completa desde el inicio</div>
             </div>
         </div>
-    </div>
-</section>
-""",
-    unsafe_allow_html=True,
-)
+    </section>
 
-# ----------------------------------------------------
-# 7. EL TERRITORIO, CLIMA Y UBICACIÓN
-# ----------------------------------------------------
-st.markdown(
-    """
-<div id="territorio"></div>
-<section class="editorial-section alt">
-    <div style="max-width: 1100px; margin: 0 auto;">
-        <p class="section-subtitle">Geografía y Entorno</p>
-        <h2 class="section-title">El territorio</h2>
-        
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 40px; margin-top: 40px;">
-            <div style="background: #FAF8F5; padding: 35px; border: 1px solid #E4E0D8;">
-                <h3 style="font-family: 'Cinzel', serif; font-size: 1.1rem; margin-bottom: 15px; color: #1F1E1D;">Región y Montaña</h3>
-                <p class="editorial-text" style="font-size: 0.95rem;">
-                    Enclavado en la cordillera Central de la región Andina, el municipio se despliega entre empinadas montañas, 
-                    frondosos bosques de niebla y profundos valles labrados por el agua. La topografía define una relación 
-                    íntima y respetuosa entre la vida cotidiana y la verticalidad del paisaje.
-                </p>
-            </div>
-            
-            <div style="background: #FAF8F5; padding: 35px; border: 1px solid #E4E0D8;">
-                <h3 style="font-family: 'Cinzel', serif; font-size: 1.1rem; margin-bottom: 15px; color: #1F1E1D;">Clima</h3>
-                <p class="editorial-text" style="font-size: 0.95rem;">
-                    Las condiciones atmosféricas están marcadas por una precipitación superior a 2400 mm en zonas montañosas 
-                    y aproximadamente 1800 mm anuales en otras zonas señaladas. Durante el día, constantes vientos fluyen 
-                    desde el valle del río Cauca hacia la imponente montaña.
-                </p>
-            </div>
-            
-            <div style="background: #FAF8F5; padding: 35px; border: 1px solid #E4E0D8;">
-                <h3 style="font-family: 'Cinzel', serif; font-size: 1.1rem; margin-bottom: 15px; color: #1F1E1D;">Límites Geográficos</h3>
-                <p class="editorial-text" style="font-size: 0.95rem;">
-                    Limita por el norte con Córdoba, por el este con Tolima, por el sur con Génova, por el oeste con el Valle del Cauca, 
-                    y por el noroeste con Buenavista. Un cruce de caminos cordilleranos cargados de historia y biodiversidad.
-                </p>
+    <!-- CASAS DEL AYER -->
+    <section class="section" id="casas-ayer">
+        <div class="section-inner">
+            <div class="split">
+                <div>
+                    <div class="kicker">Patrimonio arquitectónico</div>
+                    <h2>Casas del ayer</h2>
+                    <p>
+                        La arquitectura tradicional de Pijao conserva el uso de materiales,
+                        formas y soluciones constructivas vinculadas al paisaje cafetero.
+                        El bahareque, la madera, los balcones y los espacios de transición
+                        hacen parte de una identidad que permanece visible en el municipio.
+                    </p>
+                    <p>
+                        Más que una colección de fachadas, estas casas forman parte de una
+                        memoria cotidiana: calles, viviendas y detalles que relacionan
+                        patrimonio, clima y manera de habitar.
+                    </p>
+                </div>
+                <div>
+                    __CASAS_IMAGE__
+                </div>
             </div>
         </div>
-    </div>
-</section>
-""",
-    unsafe_allow_html=True,
-)
+    </section>
 
-# ----------------------------------------------------
-# 8. HISTORIA — LÍNEA DE TIEMPO
-# ----------------------------------------------------
-st.markdown(
-    """
-<section class="editorial-section">
-    <div style="max-width: 900px; margin: 0 auto;">
-        <p class="section-subtitle">Cronología</p>
-        <h2 class="section-title">Hitos históricos</h2>
-        
-        <div class="timeline-container">
-            <div class="timeline-item">
-                <div class="timeline-year">1902</div>
-                <div class="timeline-desc">Fundación y establecimiento inicial bajo el nombre de San José de Colón.</div>
-            </div>
-            <div class="timeline-item">
-                <div class="timeline-year">1905</div>
-                <div class="timeline-desc">Erección como corregimiento adscrito al municipio de Calarcá.</div>
-            </div>
-            <div class="timeline-item">
-                <div class="timeline-year">1912</div>
-                <div class="timeline-desc">Constitución oficial como parroquia eclesiástica.</div>
-            </div>
-            <div class="timeline-item">
-                <div class="timeline-year">1926</div>
-                <div class="timeline-desc">Elevación a la categoría de municipio, consolidando su autonomía administrativa.</div>
-            </div>
-            <div class="timeline-item">
-                <div class="timeline-year">1931</div>
-                <div class="timeline-desc">Adopción definitiva del nombre de Pijao en honor a los antiguos pobladores indígenas.</div>
-            </div>
-            <div class="timeline-item">
-                <div class="timeline-year">2014</div>
-                <div class="timeline-desc">Reconocimiento internacional como miembro de la red Cittaslow / Ciudad Sin Prisa.</div>
+    <!-- HISTORIA DE GUERREROS -->
+    <section class="section alt" id="historia-guerreros">
+        <div class="section-inner">
+            <div class="kicker">Memoria</div>
+            <h2>Historia de guerreros</h2>
+            <p class="lead">
+                Una aproximación humana a la memoria de los territorios de montaña,
+                entendida desde sus habitantes, sus caminos y las historias que
+                permanecen en el paisaje.
+            </p>
+            <div class="gallery">
+                __HIST_IMAGES__
             </div>
         </div>
-    </div>
-</section>
-""",
-    unsafe_allow_html=True,
-)
+    </section>
 
-# ----------------------------------------------------
-# 9. DESCUBRE PIJAO — CATEGORÍAS EDITORIALES
-# ----------------------------------------------------
-st.markdown(
-    """
-<div id="descubre-pijao"></div>
-<section class="editorial-section alt">
-    <div style="max-width: 1100px; margin: 0 auto;">
-        <p class="section-subtitle">Ejes Temáticos</p>
-        <h2 class="section-title">Descubre Pijao</h2>
-        <p class="editorial-text">
-            Seis dimensiones para comprender la esencia de un territorio que ha decidido conservar su ritmo natural y su dignidad cultural.
-        </p>
-        
-        <div class="category-grid">
-            <div class="category-card">
-                <h3 class="category-title">Arquitectura</h3>
-                <p class="category-text">Balcones tallados, bahareque artesanal y colores vivos que narran la maestría constructiva de la colonización.</p>
-            </div>
-            <div class="category-card">
-                <h3 class="category-title">Naturaleza</h3>
-                <p class="category-text">Bosques de niebla, fuentes hídricas prístinas y una biodiversidad cordillerana que abruma por su suntuosidad.</p>
-            </div>
-            <div class="category-card">
-                <h3 class="category-title">Cultura</h3>
-                <p class="category-text">Tradiciones orales, saberes campesinos y un profundo sentido de comunidad arraigado en la montaña.</p>
-            </div>
-            <div class="category-card">
-                <h3 class="category-title">Café</h3>
-                <p class="category-text">Cultura cafetera auténtica, donde cada grano refleja el cuidado meticuloso de los suelos volcánicos andinos.</p>
-            </div>
-            <div class="category-card">
-                <h3 class="category-title">Patrimonio</h3>
-                <p class="category-text">Legado histórico resguardado en cada esquina, en la plaza principal y en la memoria viva de sus habitantes.</p>
-            </div>
-            <div class="category-card">
-                <h3 class="category-title">Rutas y experiencias</h3>
-                <p class="category-text">Caminos reales y senderos lentos diseñados para ser recorridos a pie, observando sin prisa.</p>
+    <!-- CONOCE PIJAO -->
+    <section class="section" id="conoce-pijao">
+        <div class="section-inner">
+            <div class="split">
+                <div>__F13_IMAGE__</div>
+                <div>
+                    <div class="kicker">Destino y filosofía</div>
+                    <h2>Conoce Pijao</h2>
+                    <p>
+                        Pijao reúne paisaje de montaña, arquitectura tradicional, cultura
+                        cafetera, patrimonio e identidad local dentro de una experiencia
+                        asociada al concepto de Ciudad Sin Prisa.
+                    </p>
+                    <p>
+                        Conocer el municipio también significa reconocer su territorio y
+                        recorrerlo de manera responsable, respetando su patrimonio,
+                        sus paisajes y sus formas de vida.
+                    </p>
+                    <a class="youtube" href="https://www.youtube.com/watch?v=UPRAk3g7YVg" target="_blank" rel="noopener">
+                        CONOCE MÁS
+                    </a>
+                </div>
             </div>
         </div>
-    </div>
-</section>
-""",
-    unsafe_allow_html=True,
+    </section>
+
+    <!-- TERRITORIO -->
+    <section class="section alt" id="territorio">
+        <div class="section-inner">
+            <div class="kicker">Geografía y entorno</div>
+            <h2>El territorio</h2>
+            <div class="three">
+                <article class="card">
+                    <h3>Región Andina</h3>
+                    <p>
+                        Pijao hace parte de la Región Andina y de la Cordillera Central,
+                        en un territorio donde montaña, piedemonte y valle configuran
+                        el paisaje.
+                    </p>
+                </article>
+                <article class="card">
+                    <h3>Clima</h3>
+                    <p>
+                        En zonas montañosas la precipitación supera los 2400 mm y en otras
+                        zonas señaladas se registran aproximadamente 1800 mm anuales.
+                        Durante el día se presentan vientos desde el valle del río Cauca
+                        hacia la montaña.
+                    </p>
+                </article>
+                <article class="card">
+                    <h3>Ubicación</h3>
+                    <p>
+                        Un territorio de montaña relacionado con distintos municipios y
+                        departamentos vecinos del entorno cordillerano.
+                    </p>
+                </article>
+            </div>
+
+            <div class="location-list">
+                <div class="location-item"><strong>Norte</strong><span>Córdoba</span></div>
+                <div class="location-item"><strong>Este</strong><span>Tolima</span></div>
+                <div class="location-item"><strong>Sur</strong><span>Génova</span></div>
+                <div class="location-item"><strong>Oeste</strong><span>Valle del Cauca</span></div>
+                <div class="location-item"><strong>Noroeste</strong><span>Buenavista</span></div>
+            </div>
+        </div>
+    </section>
+
+    <!-- HISTORIA -->
+    <section class="section" id="historia">
+        <div class="section-inner">
+            <div class="kicker">Cronología</div>
+            <h2>Historia</h2>
+            <div class="timeline">
+                <div class="event">
+                    <div class="event-year">1902</div>
+                    <div class="event-text">Fundación / nombre inicial: San José de Colón.</div>
+                </div>
+                <div class="event">
+                    <div class="event-year">1905</div>
+                    <div class="event-text">Corregimiento de Calarcá.</div>
+                </div>
+                <div class="event">
+                    <div class="event-year">1912</div>
+                    <div class="event-text">Parroquia.</div>
+                </div>
+                <div class="event">
+                    <div class="event-year">1926</div>
+                    <div class="event-text">Municipio.</div>
+                </div>
+                <div class="event">
+                    <div class="event-year">1931</div>
+                    <div class="event-text">Nombre Pijao.</div>
+                </div>
+                <div class="event">
+                    <div class="event-year">2014</div>
+                    <div class="event-text">Cittaslow / Ciudad Sin Prisa.</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- DESCUBRE -->
+    <section class="section alt" id="descubre-pijao">
+        <div class="section-inner">
+            <div class="kicker">Ejes temáticos</div>
+            <h2>Descubre Pijao</h2>
+            <p class="lead">
+                Seis formas de aproximarse al territorio sin convertirlo en un catálogo:
+                arquitectura, naturaleza, cultura, café, patrimonio y experiencias.
+            </p>
+            <div class="categories">
+                <article class="category"><h3>Arquitectura</h3><p>Bahareque, madera, balcones y formas tradicionales de habitar.</p></article>
+                <article class="category"><h3>Naturaleza</h3><p>Montaña, paisaje y relación cotidiana con el entorno natural.</p></article>
+                <article class="category"><h3>Cultura</h3><p>Memoria, identidad y prácticas que hacen reconocible al territorio.</p></article>
+                <article class="category"><h3>Café</h3><p>Una dimensión fundamental del paisaje y de la identidad cafetera.</p></article>
+                <article class="category"><h3>Patrimonio</h3><p>Espacios, arquitectura y memoria que forman parte de la historia local.</p></article>
+                <article class="category"><h3>Rutas y experiencias</h3><p>Recorrer, caminar, observar y conocer el territorio sin prisa.</p></article>
+            </div>
+        </div>
+    </section>
+
+    <!-- RECORRIDO AUDIOVISUAL -->
+    <section class="section" id="recorrido-audiovisual">
+        <div class="section-inner">
+            <div class="kicker" style="text-align:center">Experiencia manual</div>
+            <h2 style="text-align:center">Recorrido audiovisual</h2>
+            <p class="lead" style="margin:0 auto;text-align:center">
+                Recorre las fotografías y registros audiovisuales a tu propio ritmo.
+            </p>
+            <div class="recorrido">
+                <div class="counter" id="counter">01 / 20</div>
+                <div id="recorrido-media"></div>
+                <div class="phrase" id="phrase"></div>
+                <div class="recorrido-controls">
+                    <button id="prev">← ANTERIOR</button>
+                    <button id="next">SIGUIENTE →</button>
+                </div>
+            </div>
+            <div style="text-align:center">
+                <a class="back-home" href="#welcome">VOLVER AL INICIO</a>
+            </div>
+        </div>
+    </section>
+
+    <footer class="footer">
+        <h3>PIJAO, CIUDAD SIN PRISA</h3>
+        <p>Territorio, memoria, paisaje y encuentro.</p>
+        <a class="back-home" style="color:#eee8dc;border-color:#777268" href="#welcome">VOLVER AL INICIO</a>
+    </footer>
+</main>
+
+<script>
+(function(){
+    const photos = __PHOTOS__;
+    const welcome = document.getElementById("welcome");
+    const title = document.getElementById("welcome-title");
+    const subtitle = document.getElementById("welcome-subtitle");
+    const welcomeVideo = document.getElementById("welcome-video");
+    const welcomePhoto = document.getElementById("welcome-photo");
+    const startButton = document.getElementById("start-button");
+    const action = document.getElementById("welcome-action");
+    const journey = document.getElementById("journey");
+    const m1 = document.getElementById("m1");
+    const audioControl = document.getElementById("audio-control");
+    const audioToggle = document.getElementById("audio-toggle");
+    const audioStatus = document.getElementById("audio-status");
+
+    // Secuencia exacta de bienvenida:
+    // 1) título, 2) video, 3) botón.
+    setTimeout(() => title.classList.add("fade-in"), 450);
+    setTimeout(() => subtitle.classList.add("fade-in"), 850);
+    setTimeout(() => {
+        if (welcomeVideo) {
+            welcomeVideo.style.opacity = "1";
+            try { welcomeVideo.play(); } catch(e) {}
+        }
+    }, 1700);
+    setTimeout(() => {
+        action.classList.add("fade-in");
+    }, 3400);
+
+    // Al terminar VIDEO: esperar 1 segundo y empezar fotos aleatorias en fade.
+    let slideshowTimer = null;
+    let photoIndex = -1;
+
+    function nextRandomPhoto(){
+        if (!photos.length) return;
+        let next = Math.floor(Math.random() * photos.length);
+        if (photos.length > 1 && next === photoIndex) {
+            next = (next + 1) % photos.length;
+        }
+        photoIndex = next;
+        welcomePhoto.style.opacity = "0";
+        setTimeout(() => {
+            welcomePhoto.style.backgroundImage = "url('" + photos[photoIndex] + "')";
+            welcomePhoto.style.opacity = "1";
+        }, 900);
+    }
+
+    function startSlideshow(){
+        if (!photos.length) return;
+        nextRandomPhoto();
+        slideshowTimer = setInterval(nextRandomPhoto, 6500);
+    }
+
+    if (welcomeVideo) {
+        welcomeVideo.addEventListener("ended", function(){
+            setTimeout(startSlideshow, 1000);
+        });
+    }
+
+    function startJourney(){
+        if (slideshowTimer) {
+            clearInterval(slideshowTimer);
+            slideshowTimer = null;
+        }
+
+        // M1 se reproduce dentro de la misma página y después de una
+        // interacción directa del usuario: esto satisface la regla de autoplay
+        // de la mayoría de navegadores.
+        if (m1) {
+            m1.muted = false;
+            m1.volume = 1.0;
+            const playPromise = m1.play();
+            if (playPromise && typeof playPromise.catch === "function") {
+                playPromise.catch(function(){
+                    // Si el navegador aún bloquea la reproducción, el usuario
+                    // puede pulsar el control de sonido para iniciar M1.
+                    audioStatus.textContent = "PULSA SONIDO PARA INICIAR";
+                });
+            }
+        }
+
+        welcome.style.transition = "opacity 1s ease";
+        welcome.style.opacity = "0";
+
+        setTimeout(function(){
+            welcome.style.display = "none";
+            journey.classList.add("visible");
+            window.scrollTo({top:0,behavior:"smooth"});
+
+            // Segundo intento de reproducción, todavía derivado de la
+            // interacción del usuario.
+            if (m1) {
+                const p = m1.play();
+                if (p && p.catch) p.catch(function(){});
+            }
+        }, 950);
+    }
+
+    startButton.addEventListener("click", startJourney);
+
+    // Control REAL del elemento HTML5 <audio>.
+    audioToggle.addEventListener("click", function(){
+        if (!m1) return;
+
+        if (m1.paused) {
+            m1.muted = false;
+            m1.volume = 1;
+            const p = m1.play();
+            if (p && p.catch) p.catch(function(){});
+        } else if (m1.muted) {
+            m1.muted = false;
+            m1.volume = 1;
+        } else {
+            m1.muted = true;
+        }
+
+        updateAudioUI();
+    });
+
+    function updateAudioUI(){
+        if (!m1) return;
+        if (m1.paused) {
+            audioToggle.textContent = "◖ SONIDO";
+            audioStatus.textContent = "PULSA PARA INICIAR";
+        } else if (m1.muted) {
+            audioToggle.textContent = "◖ ACTIVAR SONIDO";
+            audioStatus.textContent = "SONIDO DESACTIVADO";
+        } else {
+            audioToggle.textContent = "◖ QUITAR SONIDO";
+            audioStatus.textContent = "SONIDO ACTIVO";
+        }
+    }
+
+    audioControl.addEventListener("mouseenter", () => audioControl.classList.add("open"));
+    audioControl.addEventListener("mouseleave", () => audioControl.classList.remove("open"));
+    audioToggle.addEventListener("focus", () => audioControl.classList.add("open"));
+
+    // Si el navegador deja el audio en pausa, el control lo refleja.
+    if (m1) {
+        m1.addEventListener("play", updateAudioUI);
+        m1.addEventListener("pause", updateAudioUI);
+        m1.addEventListener("volumechange", updateAudioUI);
+    }
+
+    // ---------- Recorrido audiovisual ----------
+    const recorrido = [];
+    photos.forEach((src, i) => {
+        if (src) recorrido.push({type:"image",src:src,name:"F"+(i+1)});
+    });
+
+    const vpinicioSrc = "__VPINICIO_RAW__";
+    const videoSrc = "__VIDEO_RAW__";
+
+    if (videoSrc) recorrido.push({type:"video",src:videoSrc,name:"VIDEO"});
+    if (vpinicioSrc) recorrido.push({type:"video",src:vpinicioSrc,name:"VPINICIO"});
+
+    const phrases = [
+        "En Pijao, el tiempo también hace parte del paisaje.",
+        "Cada rincón guarda una historia que merece ser recorrida sin prisa.",
+        "Aquí la vida conserva el ritmo de las cosas hechas con tiempo.",
+        "Entre montañas, memoria y caminos, Pijao invita a mirar de otra manera.",
+        "Hay lugares que no se visitan solamente: se viven.",
+        "La identidad de un pueblo también vive en sus pequeños momentos.",
+        "Pijao es territorio de memoria, paisaje y encuentro.",
+        "Caminar despacio también es una forma de conocer.",
+        "La quietud de las montañas también cuenta historias.",
+        "Detenerse a observar es otra forma de recorrer.",
+        "El paisaje guarda parte de la memoria de quienes lo habitan.",
+        "Cada camino puede ser una invitación a mirar con atención.",
+        "La montaña, la arquitectura y la memoria forman un mismo paisaje.",
+        "Conocer un lugar también es aprender a escuchar su ritmo.",
+        "Hay territorios que se comprenden mejor cuando se recorren despacio.",
+        "Pijao conserva una relación cercana entre paisaje, memoria y vida cotidiana.",
+        "Lo esencial también puede encontrarse en los pequeños momentos.",
+        "Recorrer sin prisa permite descubrir otras formas de mirar."
+    ];
+
+    let recorridoIndex = 0;
+    const media = document.getElementById("recorrido-media");
+    const counter = document.getElementById("counter");
+    const phrase = document.getElementById("phrase");
+
+    function renderRecorrido(){
+        if (!recorrido.length) {
+            media.innerHTML = "<p style='color:#ddd'>No hay recursos audiovisuales disponibles.</p>";
+            return;
+        }
+
+        const item = recorrido[recorridoIndex];
+        counter.textContent =
+            String(recorridoIndex + 1).padStart(2,"0") + " / " +
+            String(recorrido.length).padStart(2,"0");
+
+        phrase.textContent = "“" + phrases[recorridoIndex % phrases.length] + "”";
+        media.innerHTML = "";
+
+        if (item.type === "image") {
+            const img = document.createElement("img");
+            img.src = item.src;
+            img.alt = item.name;
+            media.appendChild(img);
+        } else {
+            const video = document.createElement("video");
+            video.src = item.src;
+            video.controls = true;
+            video.playsInline = true;
+            video.preload = "metadata";
+            media.appendChild(video);
+        }
+    }
+
+    document.getElementById("prev").addEventListener("click", function(){
+        recorridoIndex = (recorridoIndex - 1 + recorrido.length) % recorrido.length;
+        renderRecorrido();
+    });
+
+    document.getElementById("next").addEventListener("click", function(){
+        recorridoIndex = (recorridoIndex + 1) % recorrido.length;
+        renderRecorrido();
+    });
+
+    renderRecorrido();
+
+    // Todos los enlaces internos vuelven a funcionar dentro de esta única
+    // página, sin depender de reruns de Streamlit.
+    document.querySelectorAll('a[href^="#"]').forEach(function(link){
+        link.addEventListener("click", function(e){
+            const targetId = link.getAttribute("href");
+            if (targetId === "#welcome") {
+                e.preventDefault();
+                journey.classList.remove("visible");
+                journey.style.display = "none";
+                welcome.style.display = "block";
+                welcome.style.opacity = "1";
+                window.scrollTo({top:0,behavior:"smooth"});
+                return;
+            }
+            const target = document.querySelector(targetId);
+            if (target) {
+                e.preventDefault();
+                target.scrollIntoView({behavior:"smooth",block:"start"});
+            }
+        });
+    });
+})();
+</script>
+</body>
+</html>
+"""
+
+def source_tag(src, tag):
+    if not src:
+        return ""
+    if tag == "video":
+        return f'<source src="{src}" type="video/mp4">'
+    return f'<source src="{src}" type="audio/mpeg">'
+
+hist = [PHOTOS[i-1] for i in [2,5,6,16,17] if PHOTOS[i-1]]
+hist_html = "".join(
+    f'<img src="{src}" alt="Pijao" loading="lazy">'
+    for src in hist
 )
 
-# ----------------------------------------------------
-# 10. RECORRIDO AUDIOVISUAL (MANUAL)
-# ----------------------------------------------------
-recorrido_items = [f"F{i}" for i in range(1, 19)]
-if vpinicio_path:
-    recorrido_items.append("VPINICIO")
-if video_intro_path:
-    recorrido_items.append("VIDEO")
-
-frases_poeticas = [
-    "En Pijao, el tiempo también hace parte del paisaje.",
-    "Cada rincón guarda una historia que merece ser recorrida sin prisa.",
-    "Aquí la vida conserva el ritmo de las cosas hechas con tiempo.",
-    "Entre montañas, memoria y caminos, Pijao invita a mirar de otra manera.",
-    "Hay lugares que no se visitan solamente: se viven.",
-    "La identidad de un pueblo también vive en sus pequeños momentos.",
-    "Pijao es territorio de memoria, paisaje y encuentro.",
-    "Caminar despacio también es una forma de conocer.",
-    "La quietud de las cumbres abriga la calidez de su gente.",
-    "Bajo los aleros de madera se teje la historia cotidiana del Quindío.",
-    "El verde profundo de la cordillera abraza las casas de antaño.",
-    "Detenerse a observar es el primer paso para descubrir.",
-    "Un refugio donde el futuro aún respira al ritmo del pasado.",
-    "Las manos que cultivan la tierra también custodian la memoria.",
-    "A través de los caminos de herradura pervive el pulso de la historia.",
-    "El silencio de las montañas guarda las respuestas más sinceras.",
-    "Pijao enseña que la belleza habita en lo esencial y pausado.",
-    "Aprender a caminar sin prisa es volver a sintonizar con la tierra.",
-]
-
-if "recorrido_idx" not in st.session_state:
-    st.session_state.recorrido_idx = 0
-
-total_recorrido = len(recorrido_items)
-
-st.markdown(
-    """
-<div id="recorrido-audiovisual"></div>
-<section class="editorial-section">
-    <div style="max-width: 900px; margin: 0 auto;">
-        <p class="section-subtitle" style="text-align: center;">Inmersión Visual</p>
-        <h2 class="section-title" style="text-align: center;">Recorrido audiovisual</h2>
-        <p class="editorial-text" style="text-align: center; margin-bottom: 40px;">
-            Explore de manera manual esta selección de registros fotográficos y cinematográficos que capturan la atmósfera inalterable de Pijao.
-        </p>
-    </div>
-""",
-    unsafe_allow_html=True,
+casas_src = PHOTOS[0] or PHOTOS[2]
+casas_html = (
+    f'<img class="image-large" src="{casas_src}" alt="Casas del ayer" loading="lazy">'
+    if casas_src else
+    '<div class="card">La fotografía de esta sección no está disponible.</div>'
 )
 
-current_item_key = recorrido_items[st.session_state.recorrido_idx]
-current_phrase = frases_poeticas[
-    st.session_state.recorrido_idx % len(frases_poeticas)
-]
-current_counter = f"{st.session_state.recorrido_idx + 1:02d} / {total_recorrido:02d}"
-
-st.markdown(
-    f"""
-<div style="max-width: 900px; margin: 0 auto;" class="recorrido-box">
-    <div class="recorrido-counter">{current_counter}</div>
-    <div class="recorrido-phrase">"{current_phrase}"</div>
-""",
-    unsafe_allow_html=True,
+f13_html = (
+    f'<img class="f13" src="{PHOTOS[12]}" alt="Pijao" loading="lazy">'
+    if PHOTOS[12] else
+    '<div class="card">F13 no está disponible.</div>'
 )
 
-# Renderizar elemento actual (Foto o Video)
-if current_item_key.startswith("F"):
-    img_b64 = photos_b64.get(current_item_key)
-    if img_b64:
-        st.markdown(
-            f'<div style="margin: 20px 0;"><img src="{img_b64}" style="width: 100%; max-height: 550px; object-fit: contain; border-radius: 2px;"></div>',
-            unsafe_allow_html=True,
-        )
-    else:
-        st.info(f"Recurso {current_item_key} no disponible en la carpeta assets.")
-elif current_item_key == "VPINICIO" and vpinicio_b64:
-    st.markdown(
-        f'<div style="margin: 20px 0;"><video width="100%" controls autoplay muted loop playsinline style="border-radius: 2px;"><source src="{vpinicio_b64}" type="video/mp4"></video></div>',
-        unsafe_allow_html=True,
-    )
-elif current_item_key == "VIDEO" and video_intro_b64:
-    st.markdown(
-        f'<div style="margin: 20px 0;"><video width="100%" controls preload="auto" style="border-radius: 2px;"><source src="{video_intro_b64}" type="video/mp4"></video></div>',
-        unsafe_allow_html=True,
-    )
+html = html.replace("__VIDEO_SOURCE__", source_tag(VIDEO, "video"))
+html = html.replace("__VPINICIO_SOURCE__", source_tag(VPINICIO, "video"))
+html = html.replace("__M1_SOURCE__", source_tag(M1, "audio"))
+html = html.replace("__CASAS_IMAGE__", casas_html)
+html = html.replace("__HIST_IMAGES__", hist_html)
+html = html.replace("__F13_IMAGE__", f13_html)
+html = html.replace("__PHOTOS__", photo_json)
+html = html.replace("__VPINICIO_RAW__", VPINICIO.replace('"', '\\"'))
+html = html.replace("__VIDEO_RAW__", VIDEO.replace('"', '\\"'))
 
-st.markdown("</div>", unsafe_allow_html=True)
-
-# Botones de navegación manual anterior / siguiente
-col1, col2, col3 = st.columns([1, 2, 1])
-with col1:
-    if st.button("← ANTERIOR", use_container_width=True):
-        st.session_state.recorrido_idx = (
-            st.session_state.recorrido_idx - 1
-        ) % total_recorrido
-        st.rerun()
-
-with col3:
-    if st.button("SIGUIENTE →", use_container_width=True):
-        st.session_state.recorrido_idx = (
-            st.session_state.recorrido_idx + 1
-        ) % total_recorrido
-        st.rerun()
-
-st.markdown("</section>", unsafe_allow_html=True)
-
-# ----------------------------------------------------
-# 11. VOLVER AL INICIO Y PIE DE PÁGINA
-# ----------------------------------------------------
-st.markdown(
-    """
-<section style="padding: 60px 10%; background-color: #1F1E1D; color: #FAF8F5; text-align: center;">
-    <div style="max-width: 800px; margin: 0 auto;">
-        <h3 style="font-family: 'Cinzel', serif; font-size: 1.5rem; margin-bottom: 20px; letter-spacing: 0.1em;">PIJAO, CIUDAD SIN PRISA</h3>
-        <p style="font-size: 0.9rem; color: #B5B0A8; line-height: 1.6; margin-bottom: 30px; font-weight: 300;">
-            Proyecto cultural, patrimonial y audiovisual dedicado a preservar la memoria y el ritmo pausado de la montaña quindiana.
-        </p>
-        <a href="#seccion-principal" class="editorial-link-btn" style="background: #FAF8F5; color: #1F1E1D;">VOLVER AL INICIO</a>
-    </div>
-</section>
-""",
-    unsafe_allow_html=True,
-)
+components.html(html, height=4200, scrolling=True)
