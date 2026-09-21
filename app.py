@@ -1,4 +1,5 @@
 import base64
+import time
 from pathlib import Path
 import streamlit as st
 
@@ -20,21 +21,18 @@ VIDEO_EXTS = [".mp4", ".webm", ".mov"]
 AUDIO_EXTS = [".mp3", ".wav", ".ogg"]
 
 def find_asset(name):
-    """Busca un recurso en la carpeta assets independientemente de su extensión y mayúsculas/minúsculas."""
+    """Busca un recurso en la carpeta assets independientemente de su extensión."""
     if not ASSETS_DIR.exists():
         return None
 
     all_exts = IMAGE_EXTS + VIDEO_EXTS + AUDIO_EXTS
     for ext in all_exts:
         for path in ASSETS_DIR.glob(f"{name}{ext}"):
-            if path.exists():
-                return path
+            if path.exists(): return path
         for path in ASSETS_DIR.glob(f"{name.lower()}{ext}"):
-            if path.exists():
-                return path
+            if path.exists(): return path
         for path in ASSETS_DIR.glob(f"{name.upper()}{ext}"):
-            if path.exists():
-                return path
+            if path.exists(): return path
 
     for path in ASSETS_DIR.iterdir():
         if path.stem.upper() == name.upper():
@@ -46,16 +44,9 @@ def get_asset_base64(path):
     if not path or not path.exists():
         return ""
     mime_map = {
-        ".mp4": "video/mp4",
-        ".webm": "video/webm",
-        ".mov": "video/quicktime",
-        ".mp3": "audio/mpeg",
-        ".wav": "audio/wav",
-        ".ogg": "audio/ogg",
-        ".jpg": "image/jpeg",
-        ".jpeg": "image/jpeg",
-        ".png": "image/png",
-        ".webp": "image/webp",
+        ".mp4": "video/mp4", ".webm": "video/webm", ".mov": "video/quicktime",
+        ".mp3": "audio/mpeg", ".wav": "audio/wav", ".ogg": "audio/ogg",
+        ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".png": "image/png", ".webp": "image/webp",
     }
     mime = mime_map.get(path.suffix.lower(), "application/octet-stream")
     b64_data = base64.b64encode(path.read_bytes()).decode("utf-8")
@@ -146,7 +137,6 @@ if st.session_state.nav_state == "inicio":
         letter-spacing: 0.04em;
         opacity: 0; animation: fadeIn 2.5s ease forwards 0.5s;
     }
-    /* Contenedor del botón centrado de forma absoluta */
     div[data-testid="stButton"] {
         position: fixed !important; 
         top: 65% !important; 
@@ -177,7 +167,6 @@ if st.session_state.nav_state == "inicio":
     </style>
     """, unsafe_allow_html=True)
 
-    # HTML de la Bienvenida
     st.markdown(f"""
     <div class="welcome-wrapper">
         <video class="bg-media-layer" autoplay muted loop playsinline>
@@ -191,10 +180,48 @@ if st.session_state.nav_state == "inicio":
     </div>
     """, unsafe_allow_html=True)
 
-    # Botón que cambia el estado y renderiza la otra página
     if st.button("INICIAR TRAVESÍA"):
-        st.session_state.nav_state = "desarrollo"
+        st.session_state.nav_state = "carga"
         st.rerun()
+
+# ==========================================
+# PÁGINA 1.5: PANTALLA DE CARGA FALSA
+# ==========================================
+elif st.session_state.nav_state == "carga":
+    pantalla_carga = st.empty()
+    pantalla_carga.markdown("""
+    <style>
+    .loading-wrapper {
+        position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+        background-color: #111110; z-index: 9999;
+        display: flex; flex-direction: column; align-items: center; justify-content: center;
+        color: #FAF8F5; font-family: 'Cinzel', serif;
+    }
+    .loading-text {
+        font-size: 1.3rem; letter-spacing: 0.25em; margin-bottom: 25px;
+        animation: pulse 1.5s infinite;
+    }
+    .loading-bar-container {
+        width: 250px; height: 2px; background: rgba(250, 248, 245, 0.15);
+        overflow: hidden; border-radius: 2px;
+    }
+    .loading-bar {
+        width: 0%; height: 100%; background: #FAF8F5;
+        animation: fillBar 2.5s ease forwards;
+    }
+    @keyframes pulse { 0% { opacity: 0.5; } 50% { opacity: 1; } 100% { opacity: 0.5; } }
+    @keyframes fillBar { 0% { width: 0%; } 100% { width: 100%; } }
+    </style>
+    <div class="loading-wrapper">
+        <div class="loading-text">LLEGANDO A LA MONTAÑA</div>
+        <div class="loading-bar-container"><div class="loading-bar"></div></div>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # Detenemos la ejecución 2.5 segundos para que se vea la animación y se limpie la vista
+    time.sleep(2.5)
+    st.session_state.nav_state = "desarrollo"
+    st.rerun()
 
 
 # ==========================================
@@ -227,11 +254,11 @@ elif st.session_state.nav_state == "desarrollo":
         position: fixed; bottom: 40px; right: 40px; z-index: 1100;
     }
     .audio-btn {
-        background: #1F1E1D; color: #FAF8F5; border: 2px solid #FAF8F5;
+        display: inline-block; background: #1F1E1D; color: #FAF8F5; border: 2px solid #FAF8F5;
         padding: 12px 24px; border-radius: 50px; font-family: 'Plus Jakarta Sans', sans-serif;
         font-size: 0.95rem; font-weight: 600; letter-spacing: 0.1em;
         cursor: pointer; backdrop-filter: blur(5px); transition: all 0.3s ease;
-        box-shadow: 0 8px 20px rgba(0,0,0,0.4);
+        box-shadow: 0 8px 20px rgba(0,0,0,0.4); user-select: none;
     }
     .audio-btn:hover {
         background: #FAF8F5; color: #1F1E1D; border-color: #1F1E1D; transform: scale(1.05);
@@ -258,9 +285,7 @@ elif st.session_state.nav_state == "desarrollo":
         background: #FAF8F5; padding: 40px 30px; border: 1px solid #E4E0D8;
         transition: transform 0.3s ease, box-shadow 0.3s ease;
     }
-    .category-card:hover {
-        transform: translateY(-4px); box-shadow: 0 10px 30px rgba(0,0,0,0.04);
-    }
+    .category-card:hover { transform: translateY(-4px); box-shadow: 0 10px 30px rgba(0,0,0,0.04); }
     
     .recorrido-box {
         background: #F2EFE9; border: 1px solid #E4E0D8; padding: 50px;
@@ -274,8 +299,7 @@ elif st.session_state.nav_state == "desarrollo":
         transition: all 0.3s ease !important;
     }
     div[data-testid="stButton"] button:hover {
-        background-color: #FAF8F5 !important; color: #1F1E1D !important;
-        border-color: #1F1E1D !important;
+        background-color: #FAF8F5 !important; color: #1F1E1D !important; border-color: #1F1E1D !important;
     }
 
     @media(max-width: 768px) {
@@ -285,31 +309,34 @@ elif st.session_state.nav_state == "desarrollo":
     </style>
     """, unsafe_allow_html=True)
 
-    # 1. CONTROL DE AUDIO AUTOMÁTICO
+    # 1. CONTROL DE AUDIO (CORREGIDO CON TRUCO DE ONERROR PARA STREAMLIT)
     audio_html = f"""
     <audio id="global-audio-m1" loop autoplay>
         <source src="{audio_m1_b64}" type="audio/mpeg">
     </audio>
     <div class="audio-control-container">
-        <button class="audio-btn" onclick="toggleAudio()" id="audio-btn-element">
+        <label class="audio-btn">
+            <input type="checkbox" id="audio-toggle" style="display:none;" checked>
             <span id="audio-btn-text">◖ QUITAR SONIDO</span>
-        </button>
+        </label>
     </div>
-    <script>
-    function toggleAudio() {{
-        const audio = document.getElementById('global-audio-m1');
-        const btnText = document.getElementById('audio-btn-text');
-        if (!audio) return;
-        if (audio.paused || audio.muted) {{
-            audio.muted = false;
-            audio.play();
-            btnText.innerText = "◖ QUITAR SONIDO";
-        }} else {{
-            audio.pause();
-            btnText.innerText = "◖ ACTIVAR SONIDO";
+    <!-- Inyección JS segura en Streamlit mediante onerror -->
+    <img src="dummy.png" style="display:none;" onerror="
+        var toggle = document.getElementById('audio-toggle');
+        var audio = document.getElementById('global-audio-m1');
+        var text = document.getElementById('audio-btn-text');
+        if(toggle && audio && text) {{
+            toggle.addEventListener('change', function(e) {{
+                if(e.target.checked) {{
+                    audio.play();
+                    text.innerText = '◖ QUITAR SONIDO';
+                }} else {{
+                    audio.pause();
+                    text.innerText = '◖ ACTIVAR SONIDO';
+                }}
+            }});
         }}
-    }}
-    </script>
+    ">
     """
     st.markdown(audio_html, unsafe_allow_html=True)
 
