@@ -78,14 +78,14 @@ for i in range(1, 19):
         photos_b64[f"F{i}"] = get_asset_base64(p)
 
 
-# INICIALIZACIÓN DE ESTADOS (Manejo estricto de las dos páginas)
+# INICIALIZACIÓN DE ESTADOS
 if "nav_state" not in st.session_state:
     st.session_state.nav_state = "inicio"
 if "recorrido_idx" not in st.session_state:
     st.session_state.recorrido_idx = 0
 
 
-# ESTILOS GLOBALES (Se aplican a ambas páginas)
+# ESTILOS GLOBALES
 st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@300;400;500;600&display=swap');
@@ -146,10 +146,18 @@ if st.session_state.nav_state == "inicio":
         letter-spacing: 0.04em;
         opacity: 0; animation: fadeIn 2.5s ease forwards 0.5s;
     }
-    /* Estilizando el botón nativo de Streamlit para que luzca como botón editorial flotante */
+    /* Contenedor del botón centrado de forma absoluta */
     div[data-testid="stButton"] {
-        position: fixed; top: 60%; left: 50%; transform: translate(-50%, -50%);
-        z-index: 20; opacity: 0; animation: fadeIn 3s ease forwards 1s;
+        position: fixed !important; 
+        top: 65% !important; 
+        left: 50% !important; 
+        transform: translateX(-50%) !important;
+        z-index: 20 !important; 
+        opacity: 0; 
+        animation: fadeIn 3s ease forwards 1s;
+        width: auto !important;
+        display: flex;
+        justify-content: center;
     }
     div[data-testid="stButton"] button {
         background: rgba(250, 248, 245, 0.1) !important;
@@ -160,6 +168,7 @@ if st.session_state.nav_state == "inicio":
         font-size: 1.1rem !important; font-weight: 600 !important;
         letter-spacing: 0.2em !important; border-radius: 0 !important;
         transition: all 0.4s ease !important;
+        white-space: nowrap !important;
     }
     div[data-testid="stButton"] button:hover {
         background: #FAF8F5 !important; color: #1F1E1D !important;
@@ -195,7 +204,6 @@ elif st.session_state.nav_state == "desarrollo":
     
     st.markdown("""
     <style>
-    /* Estilos específicos de la página de desarrollo */
     .nav-bar {
         position: fixed; top: 0; left: 0; width: 100%;
         background: rgba(250, 248, 245, 0.95); backdrop-filter: blur(10px);
@@ -259,7 +267,6 @@ elif st.session_state.nav_state == "desarrollo":
         text-align: center; margin-top: 40px;
     }
     
-    /* Estilos para los botones nativos de Streamlit dentro de Desarrollo (los de la galería) */
     div[data-testid="stButton"] button {
         background-color: #1F1E1D !important; color: #FAF8F5 !important;
         border: 1px solid #1F1E1D !important; border-radius: 2px !important;
@@ -279,7 +286,6 @@ elif st.session_state.nav_state == "desarrollo":
     """, unsafe_allow_html=True)
 
     # 1. CONTROL DE AUDIO AUTOMÁTICO
-    # El atributo autoplay sin "muted" permite que suene de inmediato.
     audio_html = f"""
     <audio id="global-audio-m1" loop autoplay>
         <source src="{audio_m1_b64}" type="audio/mpeg">
