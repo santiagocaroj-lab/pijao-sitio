@@ -1,5 +1,4 @@
 import base64
-import time
 from pathlib import Path
 import streamlit as st
 
@@ -20,48 +19,63 @@ IMAGE_EXTS = [".jpg", ".jpeg", ".png", ".webp"]
 VIDEO_EXTS = [".mp4", ".webm", ".mov"]
 AUDIO_EXTS = [".mp3", ".wav", ".ogg"]
 
+
 def find_asset(name):
-    """Busca un recurso en la carpeta assets independientemente de su extensión."""
-    if not ASSETS_DIR.exists():
-        return None
-
-    all_exts = IMAGE_EXTS + VIDEO_EXTS + AUDIO_EXTS
-    for ext in all_exts:
-        for path in ASSETS_DIR.glob(f"{name}{ext}"):
-            if path.exists(): return path
-        for path in ASSETS_DIR.glob(f"{name.lower()}{ext}"):
-            if path.exists(): return path
-        for path in ASSETS_DIR.glob(f"{name.upper()}{ext}"):
-            if path.exists(): return path
-
-    for path in ASSETS_DIR.iterdir():
-        if path.stem.upper() == name.upper():
-            return path
+  """Busca un recurso en la carpeta assets independientemente de su extensión."""
+  if not ASSETS_DIR.exists():
     return None
 
+  all_exts = IMAGE_EXTS + VIDEO_EXTS + AUDIO_EXTS
+  for ext in all_exts:
+    for path in ASSETS_DIR.glob(f"{name}{ext}"):
+      if path.exists():
+        return path
+    for path in ASSETS_DIR.glob(f"{name.lower()}{ext}"):
+      if path.exists():
+        return path
+    for path in ASSETS_DIR.glob(f"{name.upper()}{ext}"):
+      if path.exists():
+        return path
+
+  for path in ASSETS_DIR.iterdir():
+    if path.stem.upper() == name.upper():
+      return path
+  return None
+
+
 def get_asset_base64(path):
-    """Convierte un archivo local a base64 para incrustarlo de manera segura en HTML/JS."""
-    if not path or not path.exists():
-        return ""
-    mime_map = {
-        ".mp4": "video/mp4", ".webm": "video/webm", ".mov": "video/quicktime",
-        ".mp3": "audio/mpeg", ".wav": "audio/wav", ".ogg": "audio/ogg",
-        ".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".png": "image/png", ".webp": "image/webp",
-    }
-    mime = mime_map.get(path.suffix.lower(), "application/octet-stream")
-    b64_data = base64.b64encode(path.read_bytes()).decode("utf-8")
-    return f"data:{mime};base64,{b64_data}"
+  """Convierte un archivo local a base64 para incrustarlo de manera segura en HTML/JS."""
+  if not path or not path.exists():
+    return ""
+  mime_map = {
+      ".mp4": "video/mp4",
+      ".webm": "video/webm",
+      ".mov": "video/quicktime",
+      ".mp3": "audio/mpeg",
+      ".wav": "audio/wav",
+      ".ogg": "audio/ogg",
+      ".jpg": "image/jpeg",
+      ".jpeg": "image/jpeg",
+      ".png": "image/png",
+      ".webp": "image/webp",
+  }
+  mime = mime_map.get(path.suffix.lower(), "application/octet-stream")
+  b64_data = base64.b64encode(path.read_bytes()).decode("utf-8")
+  return f"data:{mime};base64,{b64_data}"
+
 
 # Cargar rutas de recursos clave existentes
 video_intro_path = find_asset("VIDEO")
 vpinicio_path = find_asset("VPINICIO")
 audio_m1_path = find_asset("M1")
 
-video_intro_b64 = get_asset_base64(video_intro_path) if video_intro_path else ""
+video_intro_b64 = (
+    get_asset_base64(video_intro_path) if video_intro_path else ""
+)
 vpinicio_b64 = get_asset_base64(vpinicio_path) if vpinicio_path else ""
 audio_m1_b64 = get_asset_base64(audio_m1_path) if audio_m1_path else ""
 
-# Cargar nuevos recursos de "Los sonidos del pueblo"
+# Cargar recursos de "Los sonidos del pueblo"
 fe1_path = find_asset("FE1")
 fe2_path = find_asset("FE2")
 fe3_path = find_asset("FE3")
@@ -81,43 +95,24 @@ ps_b64 = get_asset_base64(ps_path)
 # Cargar colección de fotografías F1–F18
 photos_b64 = {}
 for i in range(1, 19):
-    p = find_asset(f"F{i}")
-    if p:
-        photos_b64[f"F{i}"] = get_asset_base64(p)
+  p = find_asset(f"F{i}")
+  if p:
+    photos_b64[f"F{i}"] = get_asset_base64(p)
 
 
 # INICIALIZACIÓN DE ESTADOS
 if "nav_state" not in st.session_state:
-    st.session_state.nav_state = "inicio"
-if "prev_nav_state" not in st.session_state:
-    st.session_state.prev_nav_state = "inicio"
+  st.session_state.nav_state = "inicio"
 if "recorrido_idx" not in st.session_state:
-    st.session_state.recorrido_idx = 0
-
-
-# SOLUCIÓN: CONTROL DE SCROLL AUTOMÁTICO AL CAMBIAR DE PÁGINA
-if st.session_state.prev_nav_state != st.session_state.nav_state:
-    st.session_state.prev_nav_state = st.session_state.nav_state
-    scroll_js = f"""
-    <script>
-        // Forzamos el scroll usando el timestamp para que Streamlit siempre lo ejecute
-        // TS: {time.time()}
-        setTimeout(function() {{
-            const view = window.parent.document.querySelector('[data-testid="stAppViewContainer"]');
-            if (view) {{ view.scrollTo({{top: 0, behavior: 'instant'}}); }}
-            window.parent.scrollTo({{top: 0, behavior: 'instant'}});
-        }}, 50); // Mínimo margen para asegurar renderizado del DOM
-    </script>
-    """
-    st.components.v1.html(scroll_js, height=0, width=0)
+  st.session_state.recorrido_idx = 0
 
 
 # FUNCIONES DE UI CUSTOM
 def custom_audio_player(audio_b64, label="ESCUCHAR"):
-    """Renderiza un reproductor de audio cinemático libre de reproductores genéricos."""
-    if not audio_b64:
-        return
-    html_code = f"""
+  """Renderiza un reproductor de audio cinemático libre de reproductores genéricos."""
+  if not audio_b64:
+    return
+  html_code = f"""
     <!DOCTYPE html>
     <html>
     <head>
@@ -178,11 +173,12 @@ def custom_audio_player(audio_b64, label="ESCUCHAR"):
     </body>
     </html>
     """
-    st.components.v1.html(html_code, height=75)
+  st.components.v1.html(html_code, height=75)
 
 
 # ESTILOS GLOBALES
-st.markdown("""
+st.markdown(
+    """
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@300;400;500;600&display=swap');
 html, body, [class*="css"] {
@@ -200,14 +196,17 @@ h1, h2, h3, h4, .serif-title {
     letter-spacing: 0.05em;
 }
 </style>
-""", unsafe_allow_html=True)
+""",
+    unsafe_allow_html=True,
+)
 
 
 # ==========================================
 # PÁGINA 1: BIENVENIDA
 # ==========================================
 if st.session_state.nav_state == "inicio":
-    st.markdown("""
+  st.markdown(
+      """
     <style>
     @keyframes fadeIn {
         from { opacity: 0; transform: translateY(15px); }
@@ -270,9 +269,12 @@ if st.session_state.nav_state == "inicio":
         transform: scale(1.05) !important;
     }
     </style>
-    """, unsafe_allow_html=True)
+    """,
+      unsafe_allow_html=True,
+  )
 
-    st.markdown(f"""
+  st.markdown(
+      f"""
     <div class="welcome-wrapper">
         <video class="bg-media-layer" autoplay muted loop playsinline>
             <source src="{video_intro_b64}" type="video/mp4">
@@ -283,19 +285,22 @@ if st.session_state.nav_state == "inicio":
             <p class="welcome-subtitle">Te invitamos a recorrer lento a nuestro municipio</p>
         </div>
     </div>
-    """, unsafe_allow_html=True)
+    """,
+      unsafe_allow_html=True,
+  )
 
-    if st.button("INICIAR TRAVESÍA"):
-        st.session_state.nav_state = "desarrollo"
-        st.rerun()
+  if st.button("INICIAR TRAVESÍA"):
+    st.session_state.nav_state = "desarrollo"
+    st.rerun()
 
 
 # ==========================================
 # PÁGINA 2: DESARROLLO (PÁGINA PRINCIPAL)
 # ==========================================
 elif st.session_state.nav_state == "desarrollo":
-    
-    st.markdown("""
+
+  st.markdown(
+      """
     <style>
     /* PANTALLA DE CARGA FALSA EN CAPA SUPERIOR */
     .loading-overlay {
@@ -396,18 +401,23 @@ elif st.session_state.nav_state == "desarrollo":
         background-color: #FAF8F5 !important; color: #1F1E1D !important; border-color: #1F1E1D !important;
     }
     </style>
-    """, unsafe_allow_html=True)
+    """,
+      unsafe_allow_html=True,
+  )
 
-    # 1. PANTALLA DE CARGA
-    st.markdown("""
+  # 1. PANTALLA DE CARGA
+  st.markdown(
+      """
     <div class="loading-overlay">
         <div class="loading-text">LLEGANDO A LA MONTAÑA</div>
         <div class="loading-bar-container"><div class="loading-bar"></div></div>
     </div>
-    """, unsafe_allow_html=True)
+    """,
+      unsafe_allow_html=True,
+  )
 
-    # 2. CONTROL DE AUDIO M1 (Se renderiza SOLO si estamos en "desarrollo")
-    audio_html = f"""
+  # 2. CONTROL DE AUDIO M1 (Se renderiza SOLO si estamos en "desarrollo")
+  audio_html = f"""
     <audio id="global-audio-m1" loop autoplay>
         <source src="{audio_m1_b64}" type="audio/mpeg">
     </audio>
@@ -415,9 +425,10 @@ elif st.session_state.nav_state == "desarrollo":
         <button class="audio-btn" id="audio-btn-element">◖ QUITAR SONIDO</button>
     </div>
     """
-    st.markdown(audio_html, unsafe_allow_html=True)
+  st.markdown(audio_html, unsafe_allow_html=True)
 
-    st.components.v1.html("""
+  st.components.v1.html(
+      """
     <script>
     (function() {
         function enlazarAudio() {
@@ -444,10 +455,14 @@ elif st.session_state.nav_state == "desarrollo":
         enlazarAudio();
     })();
     </script>
-    """, height=0, width=0)
+    """,
+      height=0,
+      width=0,
+  )
 
-    # 3. NAVEGACIÓN PRINCIPAL (Actualizada con Los Sonidos del Pueblo)
-    st.markdown("""
+  # 3. NAVEGACIÓN PRINCIPAL
+  st.markdown(
+      """
     <nav class="nav-bar">
         <a href="#seccion-principal" class="nav-brand">PIJAO</a>
         <ul class="nav-links">
@@ -461,10 +476,13 @@ elif st.session_state.nav_state == "desarrollo":
         </ul>
     </nav>
     <div id="seccion-principal" style="height: 60px;"></div>
-    """, unsafe_allow_html=True)
+    """,
+      unsafe_allow_html=True,
+  )
 
-    # 4. INTRODUCCIÓN
-    st.markdown("""
+  # 4. INTRODUCCIÓN
+  st.markdown(
+      """
     <section class="editorial-section">
         <div style="max-width: 900px; margin: 0 auto; text-align: center;">
             <p class="section-subtitle">Territorio y Memoria</p>
@@ -477,10 +495,13 @@ elif st.session_state.nav_state == "desarrollo":
             </p>
         </div>
     </section>
-    """, unsafe_allow_html=True)
+    """,
+      unsafe_allow_html=True,
+  )
 
-    if vpinicio_path and vpinicio_path.exists():
-        st.markdown(f"""
+  if vpinicio_path and vpinicio_path.exists():
+    st.markdown(
+        f"""
         <div style="width: 100%; padding: 40px 0; text-align: center; background: transparent;">
             <div style="max-width: 1100px; margin: 0 auto; padding: 0 20px;">
                 <video width="100%" autoplay muted loop playsinline style="border-radius: 4px; box-shadow: 0 20px 40px rgba(0,0,0,0.3);">
@@ -488,10 +509,13 @@ elif st.session_state.nav_state == "desarrollo":
                 </video>
             </div>
         </div>
-        """, unsafe_allow_html=True)
+        """,
+        unsafe_allow_html=True,
+    )
 
-    # 5. VIDEO CINEMATOGRÁFICO PRINCIPAL
-    st.markdown("""
+  # 5. VIDEO CINEMATOGRÁFICO PRINCIPAL
+  st.markdown(
+      """
     <section class="editorial-section alt">
         <div style="max-width: 900px; margin: 0 auto; text-align: center; margin-bottom: 40px;">
             <p class="section-subtitle">Documental y Paisaje</p>
@@ -501,10 +525,13 @@ elif st.session_state.nav_state == "desarrollo":
             </p>
         </div>
     </section>
-    """, unsafe_allow_html=True)
+    """,
+      unsafe_allow_html=True,
+  )
 
-    if video_intro_path and video_intro_path.exists():
-        st.markdown(f"""
+  if video_intro_path and video_intro_path.exists():
+    st.markdown(
+        f"""
         <div style="width: 100%; padding: 20px 0 60px 0; text-align: center; background: transparent;">
             <div style="max-width: 1100px; margin: 0 auto; padding: 0 20px;">
                 <video width="100%" controls preload="auto" style="border-radius: 4px; box-shadow: 0 20px 40px rgba(0,0,0,0.4);">
@@ -512,10 +539,13 @@ elif st.session_state.nav_state == "desarrollo":
                 </video>
             </div>
         </div>
-        """, unsafe_allow_html=True)
+        """,
+        unsafe_allow_html=True,
+    )
 
-    # 6. CASAS DEL AYER
-    st.markdown("""
+  # 6. CASAS DEL AYER
+  st.markdown(
+      """
     <div id="casas-ayer"></div>
     <section class="editorial-section">
         <div style="max-width: 1100px; margin: 0 auto;">
@@ -530,24 +560,33 @@ elif st.session_state.nav_state == "desarrollo":
                         la intimidad del hogar con la vida apacible de la calle.
                     </p>
                 </div>
-    """, unsafe_allow_html=True)
+    """,
+      unsafe_allow_html=True,
+  )
 
-    casa_img = photos_b64.get("F1") or photos_b64.get("F3")
-    if casa_img:
-        st.markdown(f"""
+  casa_img = photos_b64.get("F1") or photos_b64.get("F3")
+  if casa_img:
+    st.markdown(
+        f"""
                 <div>
                     <img src="{casa_img}" style="width: 100%; border-radius: 2px; box-shadow: 0 15px 35px rgba(0,0,0,0.08); object-fit: cover;">
                 </div>
-        """, unsafe_allow_html=True)
+        """,
+        unsafe_allow_html=True,
+    )
 
-    st.markdown("""
+  st.markdown(
+      """
             </div>
         </div>
     </section>
-    """, unsafe_allow_html=True)
+    """,
+      unsafe_allow_html=True,
+  )
 
-    # 7. HISTORIA DE GUERREROS
-    st.markdown("""
+  # 7. HISTORIA DE GUERREROS
+  st.markdown(
+      """
     <div id="historia-guerreros"></div>
     <section class="editorial-section alt">
         <div style="max-width: 1100px; margin: 0 auto;">
@@ -560,19 +599,36 @@ elif st.session_state.nav_state == "desarrollo":
                     cotidiana de sus habitantes actuales y en su capacidad de resistencia cultural.
                 </p>
             </div>
-    """, unsafe_allow_html=True)
+    """,
+      unsafe_allow_html=True,
+  )
 
-    hist_imgs = [photos_b64.get(k) for k in ["F2", "F5", "F6", "F16"] if k in photos_b64]
-    if hist_imgs:
-        st.markdown('<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 20px; margin-top: 30px;">', unsafe_allow_html=True)
-        for img_src in hist_imgs:
-            st.markdown(f'<div style="overflow: hidden; border-radius: 2px;"><img src="{img_src}" style="width: 100%; height: 260px; object-fit: cover; transition: transform 0.5s ease;" onmouseover="this.style.transform=\'scale(1.03)\'" onmouseout="this.style.transform=\'scale(1)\'"></div>', unsafe_allow_html=True)
-        st.markdown("</div>", unsafe_allow_html=True)
+  hist_imgs = [
+      photos_b64.get(k) for k in ["F2", "F5", "F6", "F16"] if k in photos_b64
+  ]
+  if hist_imgs:
+    st.markdown(
+        '<div style="display: grid; grid-template-columns:'
+        " repeat(auto-fit, minmax(220px, 1fr)); gap: 20px; margin-top:"
+        ' 30px;">',
+        unsafe_allow_html=True,
+    )
+    for img_src in hist_imgs:
+      st.markdown(
+          '<div style="overflow: hidden; border-radius: 2px;"><img'
+          f' src="{img_src}" style="width: 100%; height: 260px; object-fit:'
+          " cover; transition: transform 0.5s ease;\""
+          " onmouseover=\"this.style.transform='scale(1.03)'\""
+          ' onmouseout="this.style.transform=\'scale(1)\'"></div>',
+          unsafe_allow_html=True,
+      )
+    st.markdown("</div>", unsafe_allow_html=True)
 
-    st.markdown("</div></section>", unsafe_allow_html=True)
+  st.markdown("</div></section>", unsafe_allow_html=True)
 
-    # 8. CONOCE PIJAO
-    st.markdown("""
+  # 8. CONOCE PIJAO
+  st.markdown(
+      """
     <div id="conoce-pijao"></div>
     <section class="editorial-section">
         <div style="max-width: 1100px; margin: 0 auto; text-align: center;">
@@ -584,11 +640,14 @@ elif st.session_state.nav_state == "desarrollo":
                 respirar paz, percibir el aroma inconfundible del café recién tostado y dejarse abrazar por 
                 un pueblo que ha decidido cultivar la vida con amor, consciencia y sin ninguna prisa.
             </p>
-    """, unsafe_allow_html=True)
+    """,
+      unsafe_allow_html=True,
+  )
 
-    img_f13 = photos_b64.get("F13")
-    if img_f13:
-        st.markdown(f"""
+  img_f13 = photos_b64.get("F13")
+  if img_f13:
+    st.markdown(
+        f"""
             <div style="display: flex; align-items: center; justify-content: center; gap: 40px; flex-wrap: wrap; max-width: 900px; margin: 0 auto;">
                 <div style="flex: 1.5; min-width: 300px;">
                     <img src="{img_f13}" style="width: 100%; border-radius: 2px; box-shadow: 0 15px 35px rgba(0,0,0,0.08); object-fit: cover;">
@@ -599,21 +658,30 @@ elif st.session_state.nav_state == "desarrollo":
                     </a>
                 </div>
             </div>
-        """, unsafe_allow_html=True)
-    else:
-        st.markdown("""
+        """,
+        unsafe_allow_html=True,
+    )
+  else:
+    st.markdown(
+        """
             <a href="https://www.youtube.com/watch?v=UPRAk3g7YVg" target="_blank" class="btn-link">
                 CONOCER MÁS
             </a>
-        """, unsafe_allow_html=True)
+        """,
+        unsafe_allow_html=True,
+    )
 
-    st.markdown("""
+  st.markdown(
+      """
         </div>
     </section>
-    """, unsafe_allow_html=True)
+    """,
+      unsafe_allow_html=True,
+  )
 
-    # 9. EL TERRITORIO
-    st.markdown("""
+  # 9. EL TERRITORIO
+  st.markdown(
+      """
     <div id="territorio"></div>
     <section class="editorial-section alt">
         <div style="max-width: 1100px; margin: 0 auto;">
@@ -635,10 +703,13 @@ elif st.session_state.nav_state == "desarrollo":
             </div>
         </div>
     </section>
-    """, unsafe_allow_html=True)
+    """,
+      unsafe_allow_html=True,
+  )
 
-    # 10. DESCUBRE PIJAO
-    st.markdown("""
+  # 10. DESCUBRE PIJAO
+  st.markdown(
+      """
     <div id="descubre-pijao"></div>
     <section class="editorial-section">
         <div style="max-width: 1100px; margin: 0 auto;">
@@ -652,64 +723,94 @@ elif st.session_state.nav_state == "desarrollo":
             </div>
         </div>
     </section>
-    """, unsafe_allow_html=True)
+    """,
+      unsafe_allow_html=True,
+  )
 
-    # 11. RECORRIDO AUDIOVISUAL
-    recorrido_items = [f"F{i}" for i in range(1, 19)]
-    if vpinicio_path: recorrido_items.append("VPINICIO")
-    if video_intro_path: recorrido_items.append("VIDEO")
+  # 11. RECORRIDO AUDIOVISUAL
+  recorrido_items = [f"F{i}" for i in range(1, 19)]
+  if vpinicio_path:
+    recorrido_items.append("VPINICIO")
+  if video_intro_path:
+    recorrido_items.append("VIDEO")
 
-    frases_poeticas = [
-        "En Pijao, el tiempo también hace parte del paisaje.",
-        "Cada rincón guarda una historia que merece ser recorrida sin prisa.",
-        "Aquí la vida conserva el ritmo de las cosas hechas con tiempo.",
-        "Entre montañas, memoria y caminos, Pijao invita a mirar de otra manera.",
-        "Hay lugares que no se visitan solamente: se viven.",
-    ]
+  frases_poeticas = [
+      "En Pijao, el tiempo también hace parte del paisaje.",
+      "Cada rincón guarda una historia que merece ser recorrida sin prisa.",
+      "Aquí la vida conserva el ritmo de las cosas hechas con tiempo.",
+      "Entre montañas, memoria y caminos, Pijao invita a mirar de otra manera.",
+      "Hay lugares que no se visitan solamente: se viven.",
+  ]
 
-    total_recorrido = len(recorrido_items)
+  total_recorrido = len(recorrido_items)
 
-    st.markdown("""
+  st.markdown(
+      """
     <div id="recorrido-audiovisual"></div>
     <section class="editorial-section alt">
         <div style="max-width: 900px; margin: 0 auto; text-align: center;">
             <p class="section-subtitle">Inmersión Visual</p>
             <h2 class="section-title">Recorrido audiovisual</h2>
         </div>
-    """, unsafe_allow_html=True)
+    """,
+      unsafe_allow_html=True,
+  )
 
-    current_item_key = recorrido_items[st.session_state.recorrido_idx]
-    current_phrase = frases_poeticas[st.session_state.recorrido_idx % len(frases_poeticas)]
+  current_item_key = recorrido_items[st.session_state.recorrido_idx]
+  current_phrase = frases_poeticas[
+      st.session_state.recorrido_idx % len(frases_poeticas)
+  ]
 
-    st.markdown(f"""
+  st.markdown(
+      f"""
     <div style="max-width: 900px; margin: 0 auto;" class="recorrido-box">
         <div style="font-family: 'Cinzel', serif; color: #6B705C; margin-bottom: 20px;">{st.session_state.recorrido_idx + 1:02d} / {total_recorrido:02d}</div>
         <div style="font-family: 'Cinzel', serif; font-size: 1.3rem; margin-bottom: 30px; font-style: italic;">"{current_phrase}"</div>
-    """, unsafe_allow_html=True)
+    """,
+      unsafe_allow_html=True,
+  )
 
-    if current_item_key.startswith("F"):
-        img_b64 = photos_b64.get(current_item_key)
-        if img_b64: st.markdown(f'<img src="{img_b64}" style="width: 100%; max-height: 550px; object-fit: contain;">', unsafe_allow_html=True)
-    elif current_item_key == "VPINICIO" and vpinicio_b64:
-        st.markdown(f'<video width="100%" controls autoplay muted loop playsinline><source src="{vpinicio_b64}" type="video/mp4"></video>', unsafe_allow_html=True)
-    elif current_item_key == "VIDEO" and video_intro_b64:
-        st.markdown(f'<video width="100%" controls preload="auto"><source src="{video_intro_b64}" type="video/mp4"></video>', unsafe_allow_html=True)
+  if current_item_key.startswith("F"):
+    img_b64 = photos_b64.get(current_item_key)
+    if img_b64:
+      st.markdown(
+          f'<img src="{img_b64}" style="width: 100%; max-height: 550px;'
+          ' object-fit: contain;">',
+          unsafe_allow_html=True,
+      )
+  elif current_item_key == "VPINICIO" and vpinicio_b64:
+    st.markdown(
+        f'<video width="100%" controls autoplay muted loop playsinline><source'
+        f' src="{vpinicio_b64}" type="video/mp4"></video>',
+        unsafe_allow_html=True,
+    )
+  elif current_item_key == "VIDEO" and video_intro_b64:
+    st.markdown(
+        '<video width="100%" controls preload="auto"><source'
+        f' src="{video_intro_b64}" type="video/mp4"></video>',
+        unsafe_allow_html=True,
+    )
 
-    st.markdown("</div>", unsafe_allow_html=True)
+  st.markdown("</div>", unsafe_allow_html=True)
 
-    col1, col2, col3 = st.columns([1, 2, 1])
-    with col1:
-        if st.button("← ANTERIOR", use_container_width=True):
-            st.session_state.recorrido_idx = (st.session_state.recorrido_idx - 1) % total_recorrido
-            st.rerun()
-    with col3:
-        if st.button("SIGUIENTE →", use_container_width=True):
-            st.session_state.recorrido_idx = (st.session_state.recorrido_idx + 1) % total_recorrido
-            st.rerun()
-    st.markdown("</section>", unsafe_allow_html=True)
+  col1, col2, col3 = st.columns([1, 2, 1])
+  with col1:
+    if st.button("← ANTERIOR", use_container_width=True):
+      st.session_state.recorrido_idx = (
+          st.session_state.recorrido_idx - 1
+      ) % total_recorrido
+      st.rerun()
+  with col3:
+    if st.button("SIGUIENTE →", use_container_width=True):
+      st.session_state.recorrido_idx = (
+          st.session_state.recorrido_idx + 1
+      ) % total_recorrido
+      st.rerun()
+  st.markdown("</section>", unsafe_allow_html=True)
 
-    # 12. LOS SONIDOS DEL PUEBLO (INTRODUCCIÓN)
-    st.markdown("""
+  # 12. LOS SONIDOS DEL PUEBLO (INTRODUCCIÓN)
+  st.markdown(
+      """
     <div id="sonidos-pueblo"></div>
     <section class="editorial-section">
         <div style="max-width: 900px; margin: 0 auto; text-align: center;">
@@ -719,31 +820,37 @@ elif st.session_state.nav_state == "desarrollo":
                 Los sonidos de las calles y el trapiche se juntan con el sonido de las voces de su gente. Escucha aquí al Pijao vivo.
             </p>
         </div>
-    """, unsafe_allow_html=True)
+    """,
+      unsafe_allow_html=True,
+  )
 
-    col_btn1, col_btn2, col_btn3 = st.columns([1, 1, 1])
-    with col_btn2:
-        if st.button("ESCUCHAR", use_container_width=True, key="btn_intro_sonidos"):
-            st.session_state.nav_state = "sonidos_play"
-            st.rerun()
-            
-    st.markdown("</section>", unsafe_allow_html=True)
+  col_btn1, col_btn2, col_btn3 = st.columns([1, 1, 1])
+  with col_btn2:
+    if st.button("ESCUCHAR", use_container_width=True, key="btn_intro_sonidos"):
+      st.session_state.nav_state = "sonidos_play"
+      st.rerun()
 
-    # 13. FOOTER
-    st.markdown("""
+  st.markdown("</section>", unsafe_allow_html=True)
+
+  # 13. FOOTER
+  st.markdown(
+      """
     <section style="padding: 60px 10%; background-color: #1F1E1D; color: #FAF8F5; text-align: center;">
         <h3 style="font-family: 'Cinzel', serif; font-size: 1.5rem; margin-bottom: 20px;">PIJAO, CIUDAD SIN PRISA</h3>
     </section>
-    """, unsafe_allow_html=True)
+    """,
+      unsafe_allow_html=True,
+  )
 
 
 # ==========================================
 # PÁGINA 3: EXPERIENCIA SONORA EXCLUSIVA
 # ==========================================
 elif st.session_state.nav_state == "sonidos_play":
-    
-    # CSS específico para la página sonora
-    st.markdown("""
+
+  # CSS específico para la página sonora
+  st.markdown(
+      """
     <style>
     .sound-page-container {
         max-width: 900px; margin: 0 auto; padding: 40px 5% 80px 5%;
@@ -757,6 +864,58 @@ elif st.session_state.nav_state == "sonidos_play":
     .img-container img { width: 100%; max-width: 800px; border-radius: 2px; box-shadow: 0 15px 35px rgba(0,0,0,0.08); object-fit: cover; }
     .vive-title { font-family: 'Cinzel', serif; font-size: clamp(1.8rem, 3.5vw, 2.5rem); color: #1F1E1D; text-align: center; margin-bottom: 35px; margin-top: 40px;}
     
+    /* SECUENCIA VISUAL ATMOSFÉRICA - PAISAJE SONORO (F10 -> F12 -> F17 -> F18) */
+    .ps-slideshow-container {
+        position: relative;
+        width: 100%;
+        max-width: 800px;
+        height: 480px;
+        margin: 0 auto 35px auto;
+        border-radius: 2px;
+        box-shadow: 0 15px 35px rgba(0,0,0,0.08);
+        overflow: hidden;
+        background-color: #FAF8F5;
+    }
+    @media (max-width: 768px) {
+        .ps-slideshow-container {
+            height: 280px;
+        }
+    }
+    .ps-slide {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        opacity: 0;
+    }
+    .ps-slide.slide-1 { animation: psFade1 24s ease-in-out infinite; }
+    .ps-slide.slide-2 { animation: psFade2 24s ease-in-out infinite; }
+    .ps-slide.slide-3 { animation: psFade3 24s ease-in-out infinite; }
+    .ps-slide.slide-4 { animation: psFade4 24s ease-in-out infinite; }
+
+    @keyframes psFade1 {
+        0%, 20% { opacity: 1; }
+        25%, 95% { opacity: 0; }
+        100% { opacity: 1; }
+    }
+    @keyframes psFade2 {
+        0%, 20% { opacity: 0; }
+        25%, 45% { opacity: 1; }
+        50%, 100% { opacity: 0; }
+    }
+    @keyframes psFade3 {
+        0%, 45% { opacity: 0; }
+        50%, 70% { opacity: 1; }
+        75%, 100% { opacity: 0; }
+    }
+    @keyframes psFade4 {
+        0%, 70% { opacity: 0; }
+        75%, 95% { opacity: 1; }
+        100% { opacity: 0; }
+    }
+
     div[data-testid="stButton"] button {
         background-color: #1F1E1D !important; color: #FAF8F5 !important;
         border: 1px solid #1F1E1D !important; border-radius: 2px !important;
@@ -767,10 +926,13 @@ elif st.session_state.nav_state == "sonidos_play":
         background-color: #FAF8F5 !important; color: #1F1E1D !important; border-color: #1F1E1D !important;
     }
     </style>
-    """, unsafe_allow_html=True)
-    
-    # Componente oculto para coordinar la exclusividad del audio (detener otros al reproducir uno)
-    st.components.v1.html("""
+    """,
+      unsafe_allow_html=True,
+  )
+
+  # Componente oculto para coordinar la exclusividad del audio
+  st.components.v1.html(
+      """
     <script>
     if (!window.parent.audioRelaySetup) {
         window.parent.audioRelaySetup = true;
@@ -786,61 +948,98 @@ elif st.session_state.nav_state == "sonidos_play":
         });
     }
     </script>
-    """, height=0, width=0)
+    """,
+      height=0,
+      width=0,
+  )
 
-    st.markdown("<div class='sound-page-container'>", unsafe_allow_html=True)
-    
-    # Botón Volver Arriba
-    col_v1, col_v2, col_v3 = st.columns([1, 4, 1])
-    with col_v1:
-        if st.button("← VOLVER", key="btn_volver_arriba_sonidos"):
-            st.session_state.nav_state = "desarrollo"
-            st.rerun()
-            
-    st.markdown("""
+  st.markdown("<div class='sound-page-container'>", unsafe_allow_html=True)
+
+  # Botón Volver Arriba
+  col_v1, col_v2, col_v3 = st.columns([1, 4, 1])
+  with col_v1:
+    if st.button("← VOLVER", key="btn_volver_arriba_sonidos"):
+      st.session_state.nav_state = "desarrollo"
+      st.rerun()
+
+  st.markdown(
+      """
     <div class="sonidos-header">
         <h1 class="sonidos-title">LOS SONIDOS DEL PUEBLO</h1>
         <p class="sonidos-subtitle">Escucha aquí al Pijao vivo.</p>
     </div>
     <div class="separator"></div>
-    """, unsafe_allow_html=True)
+    """,
+      unsafe_allow_html=True,
+  )
 
-    # --- SONIDO 1 ---
-    if fe1_b64:
-        st.markdown(f'<div class="img-container"><img src="{fe1_b64}"></div>', unsafe_allow_html=True)
-    if e1_b64:
-        custom_audio_player(e1_b64, "ESCUCHAR E1")
-    
-    st.markdown('<div class="separator"></div>', unsafe_allow_html=True)
-    
-    # --- SONIDO 2 ---
-    if fe2_b64:
-        st.markdown(f'<div class="img-container"><img src="{fe2_b64}"></div>', unsafe_allow_html=True)
-    if e2_b64:
-        custom_audio_player(e2_b64, "ESCUCHAR E2")
-        
-    st.markdown('<div class="separator"></div>', unsafe_allow_html=True)
-    
-    # --- SONIDO 3 ---
-    if fe3_b64:
-        st.markdown(f'<div class="img-container"><img src="{fe3_b64}"></div>', unsafe_allow_html=True)
-    if e3_b64:
-        custom_audio_player(e3_b64, "ESCUCHAR E3")
-        
-    st.markdown('<div class="separator"></div>', unsafe_allow_html=True)
-    
-    # --- VIVE EL PIJAO SONORO ---
-    st.markdown('<h2 class="vive-title">VIVE EL PIJAO SONORO</h2>', unsafe_allow_html=True)
-    if ps_b64:
-        custom_audio_player(ps_b64, "ESCUCHAR")
-        
-    st.markdown('<div class="separator"></div>', unsafe_allow_html=True)
-    
-    # Botón Volver Abajo
-    col_v4, col_v5, col_v6 = st.columns([1, 4, 1])
-    with col_v4:
-        if st.button("← VOLVER", key="btn_volver_abajo_sonidos"):
-            st.session_state.nav_state = "desarrollo"
-            st.rerun()
-            
-    st.markdown("</div>", unsafe_allow_html=True)
+  # --- SONIDO 1 ---
+  if fe1_b64:
+    st.markdown(
+        f'<div class="img-container"><img src="{fe1_b64}"></div>',
+        unsafe_allow_html=True,
+    )
+  if e1_b64:
+    custom_audio_player(e1_b64, "ESCUCHAR E1")
+
+  st.markdown('<div class="separator"></div>', unsafe_allow_html=True)
+
+  # --- SONIDO 2 ---
+  if fe2_b64:
+    st.markdown(
+        f'<div class="img-container"><img src="{fe2_b64}"></div>',
+        unsafe_allow_html=True,
+    )
+  if e2_b64:
+    custom_audio_player(e2_b64, "ESCUCHAR E2")
+
+  st.markdown('<div class="separator"></div>', unsafe_allow_html=True)
+
+  # --- SONIDO 3 ---
+  if fe3_b64:
+    st.markdown(
+        f'<div class="img-container"><img src="{fe3_b64}"></div>',
+        unsafe_allow_html=True,
+    )
+  if e3_b64:
+    custom_audio_player(e3_b64, "ESCUCHAR E3")
+
+  st.markdown('<div class="separator"></div>', unsafe_allow_html=True)
+
+  # --- VIVE EL PIJAO SONORO (PAISAJE SONORO) ---
+  st.markdown(
+      '<h2 class="vive-title">VIVE EL PIJAO SONORO</h2>', unsafe_allow_html=True
+  )
+
+  # PRESENTACIÓN VISUAL ATMOSFÉRICA EN FADE (F10 → F12 → F17 → F18)
+  f10_b64 = photos_b64.get("F10", "")
+  f12_b64 = photos_b64.get("F12", "")
+  f17_b64 = photos_b64.get("F17", "")
+  f18_b64 = photos_b64.get("F18", "")
+
+  if f10_b64 or f12_b64 or f17_b64 or f18_b64:
+    st.markdown(
+        f"""
+        <div class="ps-slideshow-container">
+            <img src="{f10_b64}" class="ps-slide slide-1" alt="Paisaje Sonoro 1">
+            <img src="{f12_b64}" class="ps-slide slide-2" alt="Paisaje Sonoro 2">
+            <img src="{f17_b64}" class="ps-slide slide-3" alt="Paisaje Sonoro 3">
+            <img src="{f18_b64}" class="ps-slide slide-4" alt="Paisaje Sonoro 4">
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+  if ps_b64:
+    custom_audio_player(ps_b64, "ESCUCHAR")
+
+  st.markdown('<div class="separator"></div>', unsafe_allow_html=True)
+
+  # Botón Volver Abajo
+  col_v4, col_v5, col_v6 = st.columns([1, 4, 1])
+  with col_v4:
+    if st.button("← VOLVER", key="btn_volver_abajo_sonidos"):
+      st.session_state.nav_state = "desarrollo"
+      st.rerun()
+
+  st.markdown("</div>", unsafe_allow_html=True)
