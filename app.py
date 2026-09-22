@@ -51,7 +51,7 @@ def get_asset_base64(path):
     b64_data = base64.b64encode(path.read_bytes()).decode("utf-8")
     return f"data:{mime};base64,{b64_data}"
 
-# Cargar rutas de recursos clave
+# Cargar rutas de recursos clave existentes
 video_intro_path = find_asset("VIDEO")
 vpinicio_path = find_asset("VPINICIO")
 audio_m1_path = find_asset("M1")
@@ -59,6 +59,23 @@ audio_m1_path = find_asset("M1")
 video_intro_b64 = get_asset_base64(video_intro_path) if video_intro_path else ""
 vpinicio_b64 = get_asset_base64(vpinicio_path) if vpinicio_path else ""
 audio_m1_b64 = get_asset_base64(audio_m1_path) if audio_m1_path else ""
+
+# Cargar nuevos recursos de "Los sonidos del pueblo"
+fe1_path = find_asset("FE1")
+fe2_path = find_asset("FE2")
+fe3_path = find_asset("FE3")
+e1_path = find_asset("E1")
+e2_path = find_asset("E2")
+e3_path = find_asset("E3")
+ps_path = find_asset("PS")
+
+fe1_b64 = get_asset_base64(fe1_path)
+fe2_b64 = get_asset_base64(fe2_path)
+fe3_b64 = get_asset_base64(fe3_path)
+e1_b64 = get_asset_base64(e1_path)
+e2_b64 = get_asset_base64(e2_path)
+e3_b64 = get_asset_base64(e3_path)
+ps_b64 = get_asset_base64(ps_path)
 
 # Cargar colección de fotografías F1–F18
 photos_b64 = {}
@@ -73,6 +90,75 @@ if "nav_state" not in st.session_state:
     st.session_state.nav_state = "inicio"
 if "recorrido_idx" not in st.session_state:
     st.session_state.recorrido_idx = 0
+
+
+# FUNCIONES DE UI CUSTOM
+def custom_audio_player(audio_b64, label="ESCUCHAR"):
+    """Renderiza un reproductor de audio cinemático libre de reproductores genéricos."""
+    if not audio_b64:
+        return
+    html_code = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600&display=swap');
+        body {{ margin: 0; padding: 0; display: flex; justify-content: center; align-items: center; background-color: transparent; font-family: 'Cinzel', serif; overflow: hidden; }}
+        .btn-audio {{
+            background-color: #1F1E1D; color: #FAF8F5; border: 1px solid #1F1E1D;
+            padding: 12px 35px; border-radius: 4px; font-size: 1.05rem; font-weight: 500;
+            letter-spacing: 0.15em; cursor: pointer; transition: all 0.4s ease;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.15);
+            display: flex; align-items: center; gap: 12px; outline: none;
+        }}
+        .btn-audio:hover {{
+            background-color: #FAF8F5; color: #1F1E1D;
+        }}
+        .icon {{ font-size: 1.2rem; }}
+    </style>
+    </head>
+    <body>
+        <audio id="audio-el" src="{audio_b64}"></audio>
+        <button class="btn-audio" id="btn-el" onclick="togglePlay()">
+            <span class="icon" id="icon">▶</span> <span id="text">{label}</span>
+        </button>
+        <script>
+            var audio = document.getElementById('audio-el');
+            var icon = document.getElementById('icon');
+            var text = document.getElementById('text');
+            
+            function togglePlay() {{
+                if(audio.paused) {{
+                    window.parent.postMessage('stop_all_audios', '*');
+                    setTimeout(function(){{
+                        audio.play();
+                        icon.innerText = "⏸";
+                        text.innerText = "PAUSAR";
+                    }}, 50);
+                }} else {{
+                    audio.pause();
+                    icon.innerText = "▶";
+                    text.innerText = "{label}";
+                }}
+            }}
+            
+            window.addEventListener('message', function(event) {{
+                if(event.data === 'stop_all_audios') {{
+                    audio.pause();
+                    icon.innerText = "▶";
+                    text.innerText = "{label}";
+                }}
+            }});
+            
+            audio.addEventListener('ended', function() {{
+                icon.innerText = "▶";
+                text.innerText = "{label}";
+            }});
+        </script>
+    </body>
+    </html>
+    """
+    st.components.v1.html(html_code, height=75)
 
 
 # ESTILOS GLOBALES
@@ -185,7 +271,7 @@ if st.session_state.nav_state == "inicio":
 
 
 # ==========================================
-# PÁGINA 2: DESARROLLO
+# PÁGINA 2: DESARROLLO (PÁGINA PRINCIPAL)
 # ==========================================
 elif st.session_state.nav_state == "desarrollo":
     
@@ -300,7 +386,7 @@ elif st.session_state.nav_state == "desarrollo":
     </div>
     """, unsafe_allow_html=True)
 
-    # 2. CONTROL DE AUDIO
+    # 2. CONTROL DE AUDIO M1 (Se renderiza SOLO si estamos en "desarrollo")
     audio_html = f"""
     <audio id="global-audio-m1" loop autoplay>
         <source src="{audio_m1_b64}" type="audio/mpeg">
@@ -340,7 +426,7 @@ elif st.session_state.nav_state == "desarrollo":
     </script>
     """, height=0, width=0)
 
-    # 3. NAVEGACIÓN PRINCIPAL
+    # 3. NAVEGACIÓN PRINCIPAL (Actualizada con Los Sonidos del Pueblo)
     st.markdown("""
     <nav class="nav-bar">
         <a href="#seccion-principal" class="nav-brand">PIJAO</a>
@@ -351,6 +437,7 @@ elif st.session_state.nav_state == "desarrollo":
             <li><a href="#territorio">Territorio</a></li>
             <li><a href="#descubre-pijao">Descubre Pijao</a></li>
             <li><a href="#recorrido-audiovisual">Recorrido audiovisual</a></li>
+            <li><a href="#sonidos-pueblo" style="color: #6B705C; font-weight: 700;">Los sonidos del pueblo</a></li>
         </ul>
     </nav>
     <div id="seccion-principal" style="height: 60px;"></div>
@@ -464,7 +551,7 @@ elif st.session_state.nav_state == "desarrollo":
 
     st.markdown("</div></section>", unsafe_allow_html=True)
 
-    # 8. CONOCE PIJAO (ACTUALIZADO: Imagen a un lado y botón en el espacio vacío)
+    # 8. CONOCE PIJAO
     st.markdown("""
     <div id="conoce-pijao"></div>
     <section class="editorial-section">
@@ -481,7 +568,6 @@ elif st.session_state.nav_state == "desarrollo":
 
     img_f13 = photos_b64.get("F13")
     if img_f13:
-        # AQUÍ ESTÁ EL CAMBIO: Un contenedor flex para alinear la imagen y el botón lado a lado
         st.markdown(f"""
             <div style="display: flex; align-items: center; justify-content: center; gap: 40px; flex-wrap: wrap; max-width: 900px; margin: 0 auto;">
                 <div style="flex: 1.5; min-width: 300px;">
@@ -495,7 +581,6 @@ elif st.session_state.nav_state == "desarrollo":
             </div>
         """, unsafe_allow_html=True)
     else:
-        # En caso de que la imagen no cargue, dejamos el botón solo
         st.markdown("""
             <a href="https://www.youtube.com/watch?v=UPRAk3g7YVg" target="_blank" class="btn-link">
                 CONOCER MÁS
@@ -603,9 +688,139 @@ elif st.session_state.nav_state == "desarrollo":
             st.rerun()
     st.markdown("</section>", unsafe_allow_html=True)
 
-    # 12. FOOTER
+    # 12. LOS SONIDOS DEL PUEBLO (INTRODUCCIÓN)
+    st.markdown("""
+    <div id="sonidos-pueblo"></div>
+    <section class="editorial-section">
+        <div style="max-width: 900px; margin: 0 auto; text-align: center;">
+            <p class="section-subtitle">Memoria Sonora</p>
+            <h2 class="section-title">Los sonidos del pueblo</h2>
+            <p class="editorial-text">
+                Los sonidos de las calles y el trapiche se juntan con el sonido de las voces de su gente. Escucha aquí al Pijao vivo.
+            </p>
+        </div>
+    """, unsafe_allow_html=True)
+
+    col_btn1, col_btn2, col_btn3 = st.columns([1, 1, 1])
+    with col_btn2:
+        if st.button("ESCUCHAR", use_container_width=True, key="btn_intro_sonidos"):
+            st.session_state.nav_state = "sonidos_play"
+            st.rerun()
+            
+    st.markdown("</section>", unsafe_allow_html=True)
+
+    # 13. FOOTER
     st.markdown("""
     <section style="padding: 60px 10%; background-color: #1F1E1D; color: #FAF8F5; text-align: center;">
         <h3 style="font-family: 'Cinzel', serif; font-size: 1.5rem; margin-bottom: 20px;">PIJAO, CIUDAD SIN PRISA</h3>
     </section>
     """, unsafe_allow_html=True)
+
+
+# ==========================================
+# PÁGINA 3: EXPERIENCIA SONORA EXCLUSIVA
+# ==========================================
+elif st.session_state.nav_state == "sonidos_play":
+    
+    # CSS específico para la página sonora
+    st.markdown("""
+    <style>
+    .sound-page-container {
+        max-width: 900px; margin: 0 auto; padding: 40px 5% 80px 5%;
+        background-color: #FAF8F5;
+    }
+    .sonidos-header { text-align: center; margin-bottom: 30px; margin-top: 20px;}
+    .sonidos-title { font-family: 'Cinzel', serif; font-size: clamp(2rem, 4vw, 3rem); color: #1F1E1D; margin-bottom: 15px; }
+    .sonidos-subtitle { font-family: 'Plus Jakarta Sans', sans-serif; font-size: 1.1rem; font-weight: 300; color: #4A4643; }
+    .separator { height: 1px; background-color: #E4E0D8; margin: 60px auto; width: 100%; }
+    .img-container { text-align: center; margin-bottom: 35px; }
+    .img-container img { width: 100%; max-width: 800px; border-radius: 2px; box-shadow: 0 15px 35px rgba(0,0,0,0.08); object-fit: cover; }
+    .vive-title { font-family: 'Cinzel', serif; font-size: clamp(1.8rem, 3.5vw, 2.5rem); color: #1F1E1D; text-align: center; margin-bottom: 35px; margin-top: 40px;}
+    
+    div[data-testid="stButton"] button {
+        background-color: #1F1E1D !important; color: #FAF8F5 !important;
+        border: 1px solid #1F1E1D !important; border-radius: 2px !important;
+        font-family: 'Cinzel', serif !important; letter-spacing: 0.1em !important;
+        transition: all 0.3s ease !important; margin-bottom: 20px;
+    }
+    div[data-testid="stButton"] button:hover {
+        background-color: #FAF8F5 !important; color: #1F1E1D !important; border-color: #1F1E1D !important;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+    
+    # Componente oculto para coordinar la exclusividad del audio (detener otros al reproducir uno)
+    st.components.v1.html("""
+    <script>
+    if (!window.parent.audioRelaySetup) {
+        window.parent.audioRelaySetup = true;
+        window.parent.addEventListener('message', function(e) {
+            if(e.data === 'stop_all_audios') {
+                var iframes = window.parent.document.querySelectorAll('iframe');
+                iframes.forEach(function(iframe) {
+                    if (iframe.contentWindow) {
+                        iframe.contentWindow.postMessage('stop_all_audios', '*');
+                    }
+                });
+            }
+        });
+    }
+    </script>
+    """, height=0, width=0)
+
+    st.markdown("<div class='sound-page-container'>", unsafe_allow_html=True)
+    
+    # Botón Volver Arriba
+    col_v1, col_v2, col_v3 = st.columns([1, 4, 1])
+    with col_v1:
+        if st.button("← VOLVER", key="btn_volver_arriba_sonidos"):
+            st.session_state.nav_state = "desarrollo"
+            st.rerun()
+            
+    st.markdown("""
+    <div class="sonidos-header">
+        <h1 class="sonidos-title">LOS SONIDOS DEL PUEBLO</h1>
+        <p class="sonidos-subtitle">Escucha aquí al Pijao vivo.</p>
+    </div>
+    <div class="separator"></div>
+    """, unsafe_allow_html=True)
+
+    # --- SONIDO 1 ---
+    if fe1_b64:
+        st.markdown(f'<div class="img-container"><img src="{fe1_b64}"></div>', unsafe_allow_html=True)
+    if e1_b64:
+        custom_audio_player(e1_b64, "ESCUCHAR E1")
+    
+    st.markdown('<div class="separator"></div>', unsafe_allow_html=True)
+    
+    # --- SONIDO 2 ---
+    if fe2_b64:
+        st.markdown(f'<div class="img-container"><img src="{fe2_b64}"></div>', unsafe_allow_html=True)
+    if e2_b64:
+        custom_audio_player(e2_b64, "ESCUCHAR E2")
+        
+    st.markdown('<div class="separator"></div>', unsafe_allow_html=True)
+    
+    # --- SONIDO 3 ---
+    if fe3_b64:
+        st.markdown(f'<div class="img-container"><img src="{fe3_b64}"></div>', unsafe_allow_html=True)
+    if e3_b64:
+        custom_audio_player(e3_b64, "ESCUCHAR E3")
+        
+    st.markdown('<div class="separator"></div>', unsafe_allow_html=True)
+    
+    # --- VIVE EL PIJAO SONORO ---
+    st.markdown('<h2 class="vive-title">VIVE EL PIJAO SONORO</h2>', unsafe_allow_html=True)
+    if ps_b64:
+        custom_audio_player(ps_b64, "ESCUCHAR")
+        
+    st.markdown('<div class="separator"></div>', unsafe_allow_html=True)
+    
+    # Botón Volver Abajo
+    col_v4, col_v5, col_v6 = st.columns([1, 4, 1])
+    with col_v4:
+        if st.button("← VOLVER", key="btn_volver_abajo_sonidos"):
+            st.session_state.nav_state = "desarrollo"
+            st.rerun()
+            
+    st.markdown("</div>", unsafe_allow_html=True)
